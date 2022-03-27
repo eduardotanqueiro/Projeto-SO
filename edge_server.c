@@ -1,12 +1,12 @@
 #include "edge_server.h"
 
 
-int EdgeServer(char *name, int CPU1_CAP, int CPU2_CAP)
+int EdgeServer(int edge_server_number)
 {
     pthread_t cpu_threads[2];
 
     #ifdef DEBUG
-    printf("ES_name: %s, CPU1_CAP: %d, CP2_CAP: %d\n",name,CPU1_CAP,CPU2_CAP);
+    printf("ES_name: %s, CPU1_CAP: %d, CP2_CAP: %d\n",edge_server_list[edge_server_number].SERVER_NAME,edge_server_list[edge_server_number].CPU1_CAP,edge_server_list[edge_server_number].CPU2_CAP);
     #endif
 
     //Create vCPU's
@@ -23,12 +23,12 @@ int EdgeServer(char *name, int CPU1_CAP, int CPU2_CAP)
     return 0;
 }
 
-int vCPU1(){
+void* vCPU1(){
 
     return 0;
 }
 
-int vCPU2(){
+void* vCPU2(){
 
     return 0;
 }

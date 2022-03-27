@@ -13,7 +13,7 @@ int TaskManager()
 
         if ( (edge_servers_processes[i] = fork()) == 0){
 
-            EdgeServer(list_edge_servers[i].SERVER_NAME,list_edge_servers[i].CPU1_CAP,list_edge_servers[i].CPU2_CAP);
+            EdgeServer(i);
             exit(0);
         }
 

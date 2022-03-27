@@ -16,52 +16,62 @@ int init(char* file_name)
     }
 
 
-    //Create a object with a structure based on the initial necessary constant variables for the shared memory and attach that object to the shared memory
-    shm_id_constants = shmget(IPC_PRIVATE, sizeof(SMV) , IPC_CREAT | 0700);
-    #ifdef DEBUG
-    printf("Initial constant memory created\n");
-    #endif
-
-    SMV = (struct Shared_Memory_Variables*) shmat(shm_id_constants,NULL,0);
-    #ifdef DEBUG
-    printf("Initial constant shared memory attached\n");
-    #endif
-
-
-
     //TODO PROTEGER CONTRA MAU INPUT DO CONFIG FILE
 
     //Process the config file data
-    fscanf(initFile,"%d\n%d\n%d\n",&SMV->QUEUE_POS,&SMV->MAX_WAIT,&SMV->EDGE_SERVER_NUMBER);
+    int queue_pos_temp,max_wait_temp,edge_server_number_temp;
 
-    list_edge_servers = (struct Edge_Server*) malloc( sizeof(struct Edge_Server) * SMV->EDGE_SERVER_NUMBER);
+    fscanf(initFile,"%d\n%d\n%d\n",&queue_pos_temp,&max_wait_temp,&edge_server_number_temp);
 
 
-    //Put edge servers list on shared memory
-    shm_id_edge_servers = shmget(IPC_PRIVATE, sizeof(list_edge_servers) , IPC_CREAT | 0700);
+    //Create the shared memory
+    shm_id = shmget(IPC_PRIVATE, sizeof(Shared_Memory_Variables) + sizeof(Edge_Server)*edge_server_number_temp  , IPC_CREAT | 0700);
+    if (shm_id < 1){
+		perror("Error creating shm memory!\n");
+		exit(1);
+	}
     #ifdef DEBUG
-    printf("Edge Servers memory created\n");
+    printf("Shared Memory created\n");
     #endif
 
-    list_edge_servers = (struct Edge_Server*) shmat(shm_id_edge_servers,NULL,0);
+    SMV = (Shared_Memory_Variables*) shmat(shm_id,NULL,0);
+    if (SMV < (Shared_Memory_Variables*) 1){
+		perror("Error attaching memory!\n");
+        //cleanup(); TODO
+		exit(1);
+	}
     #ifdef DEBUG
-    printf("Edge Servers shared memory attached\n");
+    printf("Shared memory attached\n");
     #endif
 
+    //Update some info on the shared memory
+    SMV->QUEUE_POS = queue_pos_temp;
+    SMV->MAX_WAIT = max_wait_temp;
+    SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
+
+
+    //Put edge servers on shared memory
     //Read properties for each Edge Server
+    edge_server_list = (Edge_Server*) (SMV + 1);
+    
     for(int i = 0; i < SMV->EDGE_SERVER_NUMBER ; i++){
 
         if(i != SMV->EDGE_SERVER_NUMBER - 1){
-            fscanf(initFile,"%12[^,],%d,%d\n",&list_edge_servers[i].SERVER_NAME[0],&list_edge_servers[i].CPU1_CAP,&list_edge_servers[i].CPU2_CAP);
+            fscanf(initFile,"%12[^,],%d,%d\n",&edge_server_list[i].SERVER_NAME[0],&edge_server_list[i].CPU1_CAP,&edge_server_list[i].CPU2_CAP);
         }
         else
         {
-            fscanf(initFile,"%12[^,],%d,%d",&list_edge_servers[i].SERVER_NAME[0],&list_edge_servers[i].CPU1_CAP,&list_edge_servers[i].CPU2_CAP);
+            fscanf(initFile,"%12[^,],%d,%d",&edge_server_list[i].SERVER_NAME[0],&edge_server_list[i].CPU1_CAP,&edge_server_list[i].CPU2_CAP);
         }
 
-
+        edge_server_list[i].IN_MAINTENANCE = 0;
+        edge_server_list[i].NUMBER_EXECUTED_TASKS = 0;
+        edge_server_list[i].NUMBER_MAINTENENCE_TASKS = 0;
+        edge_server_list[i].PERFORMANCE_MODE = 1;
     }
 
+
+  
 
     //Create processes
     //Monitor
@@ -120,13 +130,10 @@ int init(char* file_name)
 	}
     printf("All processes closed...\n");
 
-    shmdt(list_edge_servers);
+    shmdt(edge_server_list);
     shmdt(SMV);
-    shmctl(shm_id_constants, IPC_RMID, NULL);
-    shmctl(shm_id_edge_servers, IPC_RMID, NULL);
-
-    //free(list_edge_servers);
-    //fim
+    shmctl(shm_id, IPC_RMID, NULL);
+    //fim do debug
 
     fclose(initFile);
     return 0;

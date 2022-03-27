@@ -11,7 +11,7 @@
 
 #define DEBUG //remove this line to remove debug messages
 
-struct Edge_Server
+typedef struct
 {
     char SERVER_NAME[12];
     int CPU1_CAP;
@@ -21,29 +21,26 @@ struct Edge_Server
 
     int NUMBER_EXECUTED_TASKS;
     int NUMBER_MAINTENENCE_TASKS;
-};
+} Edge_Server;
 
 
-struct Shared_Memory_Variables
+typedef struct
 {   
     //Configuration File Variables
-    int QUEUE_POS;
+    int QUEUE_POS; //Capacity of Task Manager Queue
     int MAX_WAIT;
     int EDGE_SERVER_NUMBER;
 
     int NUMBER_NON_EXECUTED_TASKS;
 
     //Processes variables
-    pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager
+    pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager processes
 
-
-
-
+    //General Edge Servers Performance Mode
     int ALL_PERFORMANCE_MODE;
-};
+} Shared_Memory_Variables;
 
-int shm_id_constants;
-struct Shared_Memory_Variables* SMV;
-
-int shm_id_edge_servers;
-struct Edge_Server* list_edge_servers;
+//Shared Memory Variables
+int shm_id;
+Shared_Memory_Variables* SMV;
+Edge_Server* edge_server_list;
