@@ -44,3 +44,6 @@ typedef struct
 int shm_id;
 Shared_Memory_Variables* SMV;
 Edge_Server* edge_server_list;
+
+//Functions 
+void write_screen_log(char* str);

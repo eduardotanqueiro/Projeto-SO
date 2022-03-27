@@ -1,4 +1,4 @@
-#include "sys_manager.h"
+#include "mainHeader.h"
 
 int main(int argc, char** argv){
 
@@ -13,4 +13,15 @@ int main(int argc, char** argv){
 
 
     return 0;
+}
+
+void write_screen_log(char* str){
+
+    FILE* flog = fopen("log.txt","a");
+
+    fprintf(flog,"%s\n",str);
+    printf("%s\n",str);
+
+    fclose(flog);
+
 }

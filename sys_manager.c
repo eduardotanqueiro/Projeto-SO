@@ -30,9 +30,8 @@ int init(char* file_name)
 		perror("Error creating shm memory!\n");
 		exit(1);
 	}
-    #ifdef DEBUG
-    printf("Shared Memory created\n");
-    #endif
+
+    write_screen_log("Shared Memory created");
 
     SMV = (Shared_Memory_Variables*) shmat(shm_id,NULL,0);
     if (SMV < (Shared_Memory_Variables*) 1){
@@ -40,9 +39,8 @@ int init(char* file_name)
         //cleanup(); TODO
 		exit(1);
 	}
-    #ifdef DEBUG
-    printf("Shared memory attached\n");
-    #endif
+
+    write_screen_log("Shared memory attached");
 
     //Update some info on the shared memory
     SMV->QUEUE_POS = queue_pos_temp;
@@ -77,9 +75,7 @@ int init(char* file_name)
     //Monitor
     if( (SMV->child_pids[0] = fork()) == 0 )
     {
-        #ifdef DEBUG
-        printf("Monitor process created\n");
-        #endif
+        write_screen_log("Monitor process created");
 
         Monitor();
         exit(0);
@@ -93,9 +89,8 @@ int init(char* file_name)
     //Task manager
     if( (SMV->child_pids[1] = fork()) == 0 )
     {
-        #ifdef DEBUG
-        printf("Task Manager process created\n");
-        #endif
+
+        write_screen_log("Task Manager process created");
 
         TaskManager();
         exit(0);
@@ -109,9 +104,8 @@ int init(char* file_name)
     //Maintenance Manager
     if( (SMV->child_pids[2] = fork()) == 0 )
     {
-        #ifdef DEBUG
-        printf("Maintenance Manager process created\n");
-        #endif
+
+        write_screen_log("Maintenance Manager process created");
 
         MaintenanceManager();
         exit(0);
@@ -128,7 +122,8 @@ int init(char* file_name)
 	{
 		wait(NULL);
 	}
-    printf("All processes closed...\n");
+
+    write_screen_log("All processes closed...");
 
     shmdt(edge_server_list);
     shmdt(SMV);
