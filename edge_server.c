@@ -25,10 +25,10 @@ int EdgeServer(int edge_server_number)
 
 void* vCPU1(){
 
-    return 0;
+    pthread_exit(NULL);
 }
 
 void* vCPU2(){
 
-    return 0;
+    pthread_exit(NULL);
 }

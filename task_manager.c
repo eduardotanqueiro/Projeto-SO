@@ -23,11 +23,12 @@ int TaskManager()
 
 
     //End Edge Servers
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++)
 	{
 		wait(NULL);
 	}
 
+    
 
     return 0;
 }

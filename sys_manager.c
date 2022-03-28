@@ -30,9 +30,7 @@ int init(char* file_name)
 		perror("Error creating shm memory!\n");
 		exit(1);
 	}
-
-    write_screen_log("Shared Memory created");
-
+ 
     SMV = (Shared_Memory_Variables*) shmat(shm_id,NULL,0);
     if (SMV < (Shared_Memory_Variables*) 1){
 		perror("Error attaching memory!\n");
@@ -40,9 +38,24 @@ int init(char* file_name)
 		exit(1);
 	}
 
-    write_screen_log("Shared memory attached");
+    //TODO refazer
+    //Create semaphores
+    //SMV->log_write_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+    //SMV->shm_write = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+    sem_unlink("LOG_WRITE_MUTEX");
+    SMV->log_write_mutex = sem_open("LOG_WRITE_MUTEX", O_CREAT | O_EXCL,0700,1);
+    sem_unlink("SHM_WRITE");
+    SMV->shm_write = sem_open("SHM_WRITE", O_CREAT | O_EXCL ,0700,1);
+
+
+    write_screen_log("Shared Memory created");
+    write_screen_log("Shared Memory attached");
+
 
     //Update some info on the shared memory
+    //pthread_mutex_lock(&(SMV->shm_write));
+    sem_wait(SMV->shm_write);
+    
     SMV->QUEUE_POS = queue_pos_temp;
     SMV->MAX_WAIT = max_wait_temp;
     SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
@@ -68,8 +81,9 @@ int init(char* file_name)
         edge_server_list[i].PERFORMANCE_MODE = 1;
     }
 
+    sem_post(SMV->shm_write);
+    //pthread_mutex_unlock(&(SMV->shm_write));
 
-  
 
     //Create processes
     //Monitor
@@ -125,9 +139,14 @@ int init(char* file_name)
 
     write_screen_log("All processes closed...");
 
-    shmdt(edge_server_list);
+    sem_unlink("LOG_WRITE_MUTEX");
+    sem_unlink("SHM_WRITE");
+    sem_close(SMV->shm_write);
+    sem_close(SMV->log_write_mutex);
+
     shmdt(SMV);
     shmctl(shm_id, IPC_RMID, NULL);
+
     //fim do debug
 
     fclose(initFile);

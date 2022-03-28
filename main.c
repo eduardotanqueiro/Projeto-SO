@@ -18,9 +18,20 @@ int main(int argc, char** argv){
 void write_screen_log(char* str){
 
     FILE* flog = fopen("log.txt","a");
+    time_t now;
+    struct tm timenow;
 
-    fprintf(flog,"%s\n",str);
-    printf("%s\n",str);
+    //pthread_mutex_lock(&SMV->log_write_mutex);
+    sem_wait(SMV->log_write_mutex);
+
+
+    time(&now);
+    localtime_r(&now,&timenow);
+    fprintf(flog,"%02d:%02d:%02d %s\n",timenow.tm_hour,timenow.tm_min,timenow.tm_sec,str);
+    printf("%02d:%02d:%02d %s\n",timenow.tm_hour,timenow.tm_min,timenow.tm_sec,str);
+
+    sem_post(SMV->log_write_mutex);
+    //pthread_mutex_unlock(&SMV->log_write_mutex);
 
     fclose(flog);
 
