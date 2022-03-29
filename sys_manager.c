@@ -38,7 +38,7 @@ int init(char* file_name)
 		exit(1);
 	}
 
-    //TODO refazer
+
     //Create semaphores
     //SMV->log_write_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
     //SMV->shm_write = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
@@ -59,6 +59,7 @@ int init(char* file_name)
     SMV->QUEUE_POS = queue_pos_temp;
     SMV->MAX_WAIT = max_wait_temp;
     SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
+
 
 
     //Put edge servers on shared memory
