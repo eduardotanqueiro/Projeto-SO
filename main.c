@@ -2,6 +2,9 @@
 
 int main(int argc, char** argv){
 
+    //Redirect CTRL-C
+    signal(SIGINT,sigint);
+
     if(argc == 2)
         init(argv[1]); 
                
@@ -19,7 +22,7 @@ void cleanup(){
 
 
 
-    
+
 }
 
 void write_screen_log(char* str){
@@ -41,5 +44,14 @@ void write_screen_log(char* str){
     //pthread_mutex_unlock(&SMV->log_write_mutex);
 
     fclose(flog);
+
+}
+
+void sigint(){
+
+    write_screen_log("Cleaning up resources");
+    cleanup();
+    write_screen_log("Cleanup complete! Closing system");
+
 
 }
