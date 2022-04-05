@@ -11,7 +11,13 @@
 #include <pthread.h>
 #include <sys/fcntl.h>
 
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
+
 #define DEBUG //remove this line to remove debug messages
+#define PIPE_NAME "TASK_PIPE"
 
 typedef struct
 {
@@ -57,3 +63,4 @@ Edge_Server* edge_server_list;
 
 //Functions 
 void write_screen_log(char* str);
+void cleanup();

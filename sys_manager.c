@@ -11,8 +11,8 @@ int init(char* file_name)
     FILE* initFile;
     if ( (initFile = fopen(file_name,"r")) == NULL)
     {
-        fprintf(stderr,"Non-existent config file!!\n");
-        exit(-1);
+        write_screen_log("Non-existent config file!!");
+        exit(1);
     }
 
 
@@ -27,13 +27,13 @@ int init(char* file_name)
     //Create the shared memory
     shm_id = shmget(IPC_PRIVATE, sizeof(Shared_Memory_Variables) + sizeof(Edge_Server)*edge_server_number_temp  , IPC_CREAT | 0700);
     if (shm_id < 1){
-		perror("Error creating shm memory!\n");
+		write_screen_log("Error creating shm memory!");
 		exit(1);
 	}
  
     SMV = (Shared_Memory_Variables*) shmat(shm_id,NULL,0);
     if (SMV < (Shared_Memory_Variables*) 1){
-		perror("Error attaching memory!\n");
+		write_screen_log("Error attaching memory!");
         //cleanup(); TODO
 		exit(1);
 	}
@@ -61,7 +61,6 @@ int init(char* file_name)
     SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
 
 
-
     //Put edge servers on shared memory
     //Read properties for each Edge Server
     edge_server_list = (Edge_Server*) (SMV + 1);
@@ -86,7 +85,27 @@ int init(char* file_name)
     //pthread_mutex_unlock(&(SMV->shm_write));
 
 
+    //Create named pipe
+	if ( (mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) ) {
+		write_screen_log("Cannot create pipe");
+        //cleanup
+		exit(1);
+	}
+    write_screen_log("Task piped created");
+
+	// Opens the pipe for reading
+    int fd_named_pipe;
+
+	if ((fd_named_pipe = open(PIPE_NAME, O_RDWR)) < 0) {
+		write_screen_log("Cannot open pipe");
+        //cleanup
+		exit(1);
+	}
+    write_screen_log("Task pipe opened");
+
+
     //Create processes
+
     //Monitor
     if( (SMV->child_pids[0] = fork()) == 0 )
     {
@@ -97,7 +116,8 @@ int init(char* file_name)
     }
     else if ( SMV->child_pids[0] == -1)
     {
-        perror("Failed to create monitor process\nClosing program...\n");
+        write_screen_log("Failed to create monitor process. Closing program...");
+        //cleanup
         exit(1);
     }
 
@@ -112,7 +132,8 @@ int init(char* file_name)
     }
     else if ( SMV->child_pids[1] == -1)
     {
-        perror("Failed to create Task Manager process\nClosing program...\n");
+        write_screen_log("Failed to create Task Manager process. Closing program...");
+        //cleanup
         exit(2);
     }
 
@@ -127,11 +148,22 @@ int init(char* file_name)
     }
     else if ( SMV->child_pids[2] == -1)
     {
-        perror("Failed to create Maintenance Manager process\nClosing program...\n");
+        write_screen_log("Failed to create Maintenance Manager process. Closing program...");
+        //cleanup
         exit(3);
     }
 
+
+
+
+
     //DEBUG!!!!!
+    char buffer[BUFSIZ];
+    printf("Waiting for messages on the pipe\n");
+    read(fd_named_pipe,buffer,BUFSIZ);
+    printf("Received on buffer test: %s\n", buffer);
+
+
     // Wait for all worker processes
 	for (int i = 0; i < 3; i++)
 	{
@@ -147,6 +179,9 @@ int init(char* file_name)
 
     shmdt(SMV);
     shmctl(shm_id, IPC_RMID, NULL);
+
+    unlink(PIPE_NAME);
+    close(fd_named_pipe);
 
     //fim do debug
 

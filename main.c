@@ -15,6 +15,13 @@ int main(int argc, char** argv){
     return 0;
 }
 
+void cleanup(){
+
+
+
+    
+}
+
 void write_screen_log(char* str){
 
     FILE* flog = fopen("log.txt","a");
