@@ -18,6 +18,7 @@
 #include <signal.h>
 
 
+
 #define DEBUG //remove this line to remove debug messages
 #define PIPE_NAME "TASK_PIPE"
 
@@ -53,6 +54,11 @@ typedef struct
     //General Edge Servers Performance Mode
     int ALL_PERFORMANCE_MODE;
 
+    //Variables used when system is exiting
+    int closed_edge_servers;
+    pthread_cond_t end_cond;
+    pthread_mutex_t endcond_mutex;
+
 
 } Shared_Memory_Variables;
 
@@ -65,5 +71,3 @@ Edge_Server* edge_server_list;
 
 //Functions 
 void write_screen_log(char* str);
-void cleanup();
-void sigint();

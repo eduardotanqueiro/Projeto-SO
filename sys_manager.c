@@ -59,6 +59,11 @@ int init(char* file_name)
     SMV->QUEUE_POS = queue_pos_temp;
     SMV->MAX_WAIT = max_wait_temp;
     SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
+    SMV->ALL_PERFORMANCE_MODE = 1;
+    SMV->NUMBER_NON_EXECUTED_TASKS = 0;
+    SMV->closed_edge_servers = 0;
+    pthread_cond_init(&SMV->end_cond,NULL);
+    pthread_mutex_init(&SMV->endcond_mutex,NULL);
 
 
     //Put edge servers on shared memory
@@ -92,16 +97,6 @@ int init(char* file_name)
 		exit(1);
 	}
     write_screen_log("Task piped created");
-
-	// Opens the pipe for reading
-    int fd_named_pipe;
-
-	if ((fd_named_pipe = open(PIPE_NAME, O_RDWR)) < 0) {
-		write_screen_log("Cannot open pipe");
-        //cleanup
-		exit(1);
-	}
-    write_screen_log("Task pipe opened");
 
 
     //Create processes
@@ -153,37 +148,6 @@ int init(char* file_name)
         exit(3);
     }
 
-
-
-
-
-    //DEBUG!!!!!
-    char buffer[BUFSIZ];
-    printf("Waiting for messages on the pipe\n");
-    read(fd_named_pipe,buffer,BUFSIZ);
-    printf("Received on buffer test: %s\n", buffer);
-
-
-    // Wait for all worker processes
-	for (int i = 0; i < 3; i++)
-	{
-		wait(NULL);
-	}
-
-    write_screen_log("All processes closed...");
-
-    sem_unlink("LOG_WRITE_MUTEX");
-    sem_unlink("SHM_WRITE");
-    sem_close(SMV->shm_write);
-    sem_close(SMV->log_write_mutex);
-
-    shmdt(SMV);
-    shmctl(shm_id, IPC_RMID, NULL);
-
-    unlink(PIPE_NAME);
-    close(fd_named_pipe);
-
-    //fim do debug
 
     fclose(initFile);
     return 0;
