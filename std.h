@@ -55,9 +55,9 @@ typedef struct
     int ALL_PERFORMANCE_MODE;
 
     //Variables used when system is exiting
-    int closed_edge_servers;
-    pthread_cond_t end_cond;
-    pthread_mutex_t endcond_mutex;
+    // int closed_edge_servers;
+    // pthread_cond_t end_cond;
+    // pthread_mutex_t endcond_mutex;
 
 
 } Shared_Memory_Variables;

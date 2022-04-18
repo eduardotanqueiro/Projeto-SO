@@ -61,9 +61,9 @@ int init(char* file_name)
     SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
     SMV->ALL_PERFORMANCE_MODE = 1;
     SMV->NUMBER_NON_EXECUTED_TASKS = 0;
-    SMV->closed_edge_servers = 0;
-    pthread_cond_init(&SMV->end_cond,NULL);
-    pthread_mutex_init(&SMV->endcond_mutex,NULL);
+    // SMV->closed_edge_servers = 0;
+    // pthread_cond_init(&SMV->end_cond,NULL);
+    // pthread_mutex_init(&SMV->endcond_mutex,NULL);
 
 
     //Put edge servers on shared memory

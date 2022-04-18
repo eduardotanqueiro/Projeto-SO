@@ -6,7 +6,7 @@ int TaskManager()
     printf("Task Manager!!\n");
     #endif
 
-    signal(SIGINT,SIG_BLOCK);
+    signal(SIGINT,SIG_BLOCK); //não é preciso se for feito no main?
 
     edge_servers_processes = malloc( sizeof(pid_t) * (SMV->EDGE_SERVER_NUMBER) );
 
@@ -83,12 +83,12 @@ void end_sig_tm(){
     unlink(PIPE_NAME);
     close(fd_named_pipe);
 
-    //KILL EDGE SERVER PROCESSES
-    for(int i = 0;i< SMV->EDGE_SERVER_NUMBER;i++){
-        printf("pid edge %d\n",edge_servers_processes[i]);
-        kill(edge_servers_processes[i],SIGINT);
-    }
+    //
 
+    //Wait for Edge Server Processes
+    for(int i = 0;i < SMV->EDGE_SERVER_NUMBER ;i++){
+        wait(NULL);
+    }
 
     //CLOSE THREADS
     pthread_cancel(tm_threads[0]);

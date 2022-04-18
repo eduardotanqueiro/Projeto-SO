@@ -3,7 +3,7 @@
 int main(int argc, char** argv){
 
     //Block CTRL+C and CTRL+Z during initialization
-
+    //TODO BLOCK ALL SIGNALS, AFTER INIT RESUME ONLY CTRL+C AND CTRL+Z
     signal(SIGINT,SIG_IGN);
     signal(SIGTSTP,SIG_IGN);   
 
@@ -22,7 +22,6 @@ int main(int argc, char** argv){
     signal(SIGINT,sigint);
 
     #ifdef DEBUG
-    printf("sleep\n");
     pause();
     #endif
 
@@ -32,39 +31,19 @@ int main(int argc, char** argv){
 
 void cleanup(){
 
-    //TODO REDO EVERYTHING (not working properly)
-
-    //Processes
-    kill(SMV->child_pids[0],SIGINT);
-    kill(SMV->child_pids[2],SIGINT);
-    //kill(SMV->child_pids[1],SIGINT);
 
     #ifdef DEBUG
     printf("aqui1\n");
     #endif
 
-    // TODO
     // ESPERA AQUI, SÓ PODE FECHAR A SHM QUANDO TODOS OS OUTROS PROCESSOS FECHAREM
-    // cond semaphore
-    /*
-    while(1){
-
-        pthread_mutex_lock(&SMV->endcond_mutex);
-
-        sem_wait(SMV->shm_write);
-        printf("dentro loop %d !\n",SMV->closed_edge_servers);
-        if(SMV->closed_edge_servers == SMV->EDGE_SERVER_NUMBER) break;
-        sem_post(SMV->shm_write);
-
-
-        pthread_cond_wait(&SMV->end_cond,&SMV->endcond_mutex);
-
-        pthread_mutex_unlock(&SMV->endcond_mutex);
+    //  WAIT FOR CHILDS
+    for(int i = 0;i<3;i++){
+        wait(NULL);
     }
-    */
+    
 
     #ifdef DEBUG
-    printf("fora %d\n",SMV->closed_edge_servers);
     printf("aqui2\n");
     #endif
 
