@@ -1,3 +1,6 @@
+//  Eduardo Carneiro - 2020240332
+//  Lucas Anjo - 2020218028
+
 #include "mainHeader.h"
 
 int main(int argc, char** argv){

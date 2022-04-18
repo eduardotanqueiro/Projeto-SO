@@ -1,9 +1,12 @@
+//  Eduardo Carneiro - 2020240332
+//  Lucas Anjo - 2020218028
+
+
 #include "sys_manager.h"
 
-
-/*
-Startup function; reads configuration file and boots system resources
-*/
+//
+//  Startup function; reads configuration file and boots system resources
+//
 int init(char* file_name)
 {
 

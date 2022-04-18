@@ -8,11 +8,14 @@ OBJS1 = main.o sys_manager.o edge_server.o maintenance_manager.o monitor.o task_
 PROG2 = mobile_node
 OBJS2 = mobile_node.o
 
-all: ${PROG1} clean
-all: ${PROG2} clean
+all: ${PROG1} clean1
+all: ${PROG2} clean2
 
-clean:
-		rm -f ${OBJS}
+clean1:
+		rm -f ${OBJS1}
+		
+clean2:
+		rm -f ${OBJS2}
 
 ${PROG1}:	${OBJS1}
 		${CC} ${FLAGS} ${OBJS1} -o $@

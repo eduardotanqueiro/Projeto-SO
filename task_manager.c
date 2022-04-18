@@ -1,3 +1,6 @@
+//  Eduardo Carneiro - 2020240332
+//  Lucas Anjo - 2020218028
+
 #include "task_manager.h"
 
 int TaskManager()
@@ -6,7 +9,7 @@ int TaskManager()
     printf("Task Manager!!\n");
     #endif
 
-    signal(SIGINT,SIG_BLOCK); //não é preciso se for feito no main?
+    signal(SIGINT,SIG_BLOCK); //não é preciso se for feito no main?/trocar para sigaction?
 
     edge_servers_processes = malloc( sizeof(pid_t) * (SMV->EDGE_SERVER_NUMBER) );
 

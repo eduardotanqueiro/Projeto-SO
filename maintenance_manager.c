@@ -1,3 +1,6 @@
+//  Eduardo Carneiro - 2020240332
+//  Lucas Anjo - 2020218028
+
 #include "maintenance_manager.h"
 
 int MaintenanceManager()

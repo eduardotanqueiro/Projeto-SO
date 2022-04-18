@@ -1,3 +1,6 @@
+//  Eduardo Carneiro - 2020240332
+//  Lucas Anjo - 2020218028
+
 #include "edge_server.h"
 
 // TESTE
@@ -10,10 +13,10 @@ int EdgeServer(int edge_server_number)
     struct sigaction action;
     // signal(SIGINT,SIG_IGN);
 
-    action.sa_handler = end_sig;
-    action.sa_flags = 0;
-    sigemptyset(&action.sa_mask);
-    sigaction(SIGINT, &action, NULL);
+    // action.sa_handler = end_sig;
+    // action.sa_flags = 0;
+    // sigemptyset(&action.sa_mask);
+    // sigaction(SIGINT, &action, NULL);
 
     // Ignore all signals on all threads
     // não é preciso se for feito no main?
@@ -22,10 +25,10 @@ int EdgeServer(int edge_server_number)
     sigaddset(&block_mask, SIGTSTP);
     pthread_sigmask(SIG_BLOCK, &block_mask, &original_mask);
 
-#ifdef DEBUG
+    #ifdef DEBUG
     printf("ES_name: %s, CPU1_CAP: %d, CP2_CAP: %d\n", edge_server_list[edge_server_number].SERVER_NAME, edge_server_list[edge_server_number].CPU1_CAP, edge_server_list[edge_server_number].CPU2_CAP);
     x = edge_server_number;
-#endif
+    #endif
 
     end_system = 0;
     pthread_mutex_init(&read_end, NULL);
@@ -41,14 +44,14 @@ int EdgeServer(int edge_server_number)
 
     pthread_sigmask(SIG_SETMASK, &original_mask, NULL);
 
-    printf("Unblocked\n");
+    //printf("Unblocked\n");
 
-// TODO
-// RECEIVE TASKS AND MANAGE ACTIVE CPUS
-// UNNAMED PIPES
-#ifdef DEBUG
+    // TODO
+    // RECEIVE TASKS AND MANAGE ACTIVE CPUS
+    // UNNAMED PIPES
+    #ifdef DEBUG
     pause();
-#endif
+    #endif
 
     // end_sig();
 
@@ -58,9 +61,9 @@ int EdgeServer(int edge_server_number)
 void *vCPU1()
 {
 
-#ifdef DEBUG
+    #ifdef DEBUG
     printf("CPU1 Working...\n");
-#endif
+    #endif  
 
     while (1)
     {
@@ -81,9 +84,9 @@ void *vCPU1()
 void *vCPU2()
 {
 
-#ifdef DEBUG
+    #ifdef DEBUG
     printf("CPU2 Working...\n");
-#endif
+    #endif
 
     while (1)
     {
