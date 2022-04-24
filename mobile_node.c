@@ -10,22 +10,23 @@
 #include "std.h"
 #endif
 
+#define BUFPIP 512
 int fd_named_pipe;
+
 
 
 int generate_request(int num_instructions, int timeout);
 
 int main(int argc, char** argv){
+
     
     if(argc == 5){
         
         //Open TASK PIPE
-        
         if ((fd_named_pipe = open(PIPE_NAME, O_WRONLY)) < 0) {
             perror("Cannot open pipe for writting: ");
             exit(1);
 	    }
-
 
 
         //Variables
@@ -34,6 +35,7 @@ int main(int argc, char** argv){
         int timeout = atoi(argv[4]);
 
         for(int i = 0; i< atoi(argv[1]); i++){
+
             
             if( generate_request(num_instructions,timeout) != 0 )
                 printf("Error generating request number %d\n",i);
@@ -55,12 +57,14 @@ int main(int argc, char** argv){
 
 
 int generate_request(int num_instructions, int timeout){
-    char buffer[BUFSIZ];
+    char buffer[BUFPIP];
     srand(time(0));
     
-    snprintf(buffer,BUFSIZ,"%d;%d;%d", 1 + rand()%50000 , num_instructions , timeout);
+    snprintf(buffer,BUFPIP,"%d;%d;%d\n", 1 + rand()%50000 , num_instructions , timeout);
 
-    if( write(fd_named_pipe,buffer,BUFSIZ) < 0 )
+    if( write(fd_named_pipe,buffer,BUFPIP) < 0 ){
+        perror("Write: ");
         return 1;
+    }
     return 0;
 }

@@ -43,8 +43,6 @@ int init(char* file_name)
 
 
     //Create semaphores
-    //SMV->log_write_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
-    //SMV->shm_write = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
     sem_unlink("LOG_WRITE_MUTEX");
     SMV->log_write_mutex = sem_open("LOG_WRITE_MUTEX", O_CREAT | O_EXCL,0700,1);
     sem_unlink("SHM_WRITE");
@@ -56,7 +54,6 @@ int init(char* file_name)
 
 
     //Update some info on the shared memory
-    //pthread_mutex_lock(&(SMV->shm_write));
     sem_wait(SMV->shm_write);
     
     SMV->QUEUE_POS = queue_pos_temp;
@@ -90,11 +87,10 @@ int init(char* file_name)
     }
 
     sem_post(SMV->shm_write);
-    //pthread_mutex_unlock(&(SMV->shm_write));
 
 
     //Create named pipe
-	if ( (mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) ) {
+	if ( (mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0666)<0) ) {
 		write_screen_log("Cannot create pipe");
         //cleanup
 		exit(1);

@@ -8,11 +8,12 @@ int main(int argc, char** argv){
     //Block CTRL+C and CTRL+Z during initialization
     //TODO BLOCK ALL SIGNALS, AFTER INIT RESUME ONLY CTRL+C AND CTRL+Z
     signal(SIGINT,SIG_IGN);
-    signal(SIGTSTP,SIG_IGN);   
+    signal(SIGTSTP,SIG_IGN);
+
 
 
     if(argc == 2)
-        init(argv[1]); 
+        init(argv[1]);
                
     else
     {
@@ -39,6 +40,8 @@ void cleanup(){
     printf("aqui1\n");
     #endif
 
+    //FLAG NA SHMM PARA TERMINAR TASK MANAGER E EDGE SERVERS
+    
     // ESPERA AQUI, SÓ PODE FECHAR A SHM QUANDO TODOS OS OUTROS PROCESSOS FECHAREM
     //  WAIT FOR CHILDS
     for(int i = 0;i<3;i++){
@@ -59,6 +62,10 @@ void cleanup(){
     #ifdef DEBUG
     printf("aqui3\n");
     #endif
+    //Pipe
+    unlink(PIPE_NAME);
+    close(fd_named_pipe);
+
 
     //Shared Memory
     shmdt(SMV);
@@ -76,7 +83,7 @@ void cleanup(){
 //
 void write_screen_log(char* str){
 
-    FILE* flog = fopen("log.txt","a");
+    FILE* flog = fopen("log.txt","a"); //trocar
     time_t now;
     struct tm timenow;
 

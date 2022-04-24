@@ -9,21 +9,18 @@ int x;
 int EdgeServer(int edge_server_number)
 {
 
-    sigset_t block_mask, original_mask;
+    sigset_t mask;
     struct sigaction action;
-    // signal(SIGINT,SIG_IGN);
+    //signal(SIGINT,SIG_IGN);
 
-    // action.sa_handler = end_sig;
-    // action.sa_flags = 0;
-    // sigemptyset(&action.sa_mask);
-    // sigaction(SIGINT, &action, NULL);
+    action.sa_handler = end_sig;
+    action.sa_flags = 0;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGINT, &action, NULL);
 
     // Ignore all signals on all threads
-    // não é preciso se for feito no main?
-    sigemptyset(&block_mask);
-    sigaddset(&block_mask, SIGINT);
-    sigaddset(&block_mask, SIGTSTP);
-    pthread_sigmask(SIG_BLOCK, &block_mask, &original_mask);
+    sigfillset(&mask);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
 
     #ifdef DEBUG
     printf("ES_name: %s, CPU1_CAP: %d, CP2_CAP: %d\n", edge_server_list[edge_server_number].SERVER_NAME, edge_server_list[edge_server_number].CPU1_CAP, edge_server_list[edge_server_number].CPU2_CAP);
@@ -39,10 +36,10 @@ int EdgeServer(int edge_server_number)
 
     // Resume CTRL+C handling on main thread
     // signal(SIGINT,end_sig);
-    // sigemptyset(&mask);
-    // sigaddset(&mask,SIGINT);
+    sigemptyset(&mask);
+    sigaddset(&mask,SIGINT);
 
-    pthread_sigmask(SIG_SETMASK, &original_mask, NULL);
+    pthread_sigmask(SIG_UNBLOCK, &mask, NULL);
 
     //printf("Unblocked\n");
 
@@ -61,6 +58,8 @@ int EdgeServer(int edge_server_number)
 void *vCPU1()
 {
 
+
+
     #ifdef DEBUG
     printf("CPU1 Working...\n");
     #endif  
@@ -76,13 +75,14 @@ void *vCPU1()
         // DO WORK
     }
 
-    printf("fora loop thread1 edge server!\n");
+    printf("fora loop thread1 edge server %d!\n",x);
 
     pthread_exit(NULL);
 }
 
 void *vCPU2()
 {
+
 
     #ifdef DEBUG
     printf("CPU2 Working...\n");
@@ -99,7 +99,7 @@ void *vCPU2()
         // DO WORK
     }
 
-    printf("fora loop thread2 edge server!\n");
+    printf("fora loop thread2 edge server %d!\n",x);
 
     pthread_exit(NULL);
 }
