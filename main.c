@@ -56,8 +56,14 @@ void cleanup(){
     //Semaphores
     sem_unlink("LOG_WRITE_MUTEX");
     sem_unlink("SHM_WRITE");
+    sem_unlink("SHM_ES");
+    sem_unlink("SHM_CHECK_PFM");
     sem_close(SMV->shm_write);
     sem_close(SMV->log_write_mutex);
+    sem_close(SMV->shm_edge_servers);
+    sem_close(SMV->check_performance_mode);
+
+    pthread_cond_destroy(&(SMV->edge_server_sig));
     
     #ifdef DEBUG
     printf("aqui3\n");

@@ -28,12 +28,17 @@
 
 typedef struct
 {
+    //No semaphore needed for access, are set once and never changed
+    int EDGE_SERVER_NUMBER;
     char SERVER_NAME[12];
     int CPU1_CAP;
     int CPU2_CAP;
+    int pipe[2];
+
+    //Need semaphore for acess, because are changed by more than 1 process/thread
     int PERFORMANCE_MODE;
     int IN_MAINTENANCE;
-
+    int AVAILABLE_CPUS[2];
     int NUMBER_EXECUTED_TASKS;
     int NUMBER_MAINTENENCE_TASKS;
 } Edge_Server;
@@ -51,14 +56,21 @@ typedef struct
     //Processes variables
     pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager processes
 
+
     //Semaphores
     sem_t *log_write_mutex;
     sem_t *shm_write;
+    sem_t *shm_edge_servers;
+    sem_t *check_performance_mode;
+
+    pthread_cond_t edge_server_sig;
+
 
     //General Edge Servers Performance Mode
     int ALL_PERFORMANCE_MODE;
 
     //Variables used when system is exiting
+    //pthread_mutex_t shm_rdwr_exit;
     // int closed_edge_servers;
     // pthread_cond_t end_cond;
     // pthread_mutex_t endcond_mutex;

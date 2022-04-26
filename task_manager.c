@@ -5,9 +5,9 @@
 
 int TaskManager()
 {
-#ifdef DEBUG
+    #ifdef DEBUG
     printf("Task Manager!!\n");
-#endif
+    #endif
 
     // signal(SIGINT,SIG_BLOCK); //não é preciso se for feito no main?/trocar para sigaction?
 
@@ -34,6 +34,11 @@ int TaskManager()
     }
     write_screen_log("Task pipe opened");
 
+    // Open unnamed pipes
+    for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){
+        pipe(edge_server_list[i].pipe);
+    }
+
     // Create message queue
     id_node_counter = 0;
     fila_mensagens = (linked_list *)malloc(sizeof(linked_list));
@@ -54,7 +59,7 @@ int TaskManager()
     // Scheduler Thread
     pthread_create(&tm_threads[0], NULL, scheduler, 0);
 
-
+    //condicao variavel à espera que o system acabe
     #ifdef DEBUG
     pause();
     #endif
@@ -154,18 +159,29 @@ void *scheduler()
                     tok = strtok_r(NULL,"\n",&resto);
                     timeout_priority = atoi(tok);
 
-                    //Reevaluate priorities and insert into message list
+
                     pthread_mutex_lock(&rd_wr_list);
-                    check_priorities(&fila_mensagens);
 
-                    insert_list(&fila_mensagens,timeout_priority,num_instructions,timeout_priority);
-                    
-                    //Avisar o dispatcher que há mensangens na fila
-                    if(fila_mensagens->node_number == 1){ //????
-                        // Avisar o dispatcher que já há mensangens na fila
-                        pthread_cond_signal(&new_task_cond);
+                    //Check if message queue is full
+                    if(fila_mensagens->node_number == SMV->QUEUE_POS){
+                        //TODO -> ESCREVER PARA O LOG
+                        printf("Fila Cheia. Mensagem Descartada");
+
                     }
+                    else{
 
+                        //Reevaluate priorities and insert into message list
+                        check_priorities(&fila_mensagens);
+
+                        insert_list(&fila_mensagens,timeout_priority,num_instructions,timeout_priority);
+                        
+                        //Avisar o dispatcher que há mensangens na fila
+                        if(fila_mensagens->node_number == 1){ //????
+                            // Avisar o dispatcher que já há mensangens na fila
+                            pthread_cond_signal(&new_task_cond);
+                        }
+                    }
+                    
                     pthread_mutex_unlock(&rd_wr_list);
                 }
                 else{
@@ -195,9 +211,13 @@ void *dispatcher()
     #endif
 
     Node *next_task = (Node*)malloc(sizeof(Node));
+    int flag; //checking if there is any available CPU
+    int pipe_to_send;
 
     while (1)
-    {
+    {   
+        flag = 0;
+        pipe_to_send = -1;
 
         //printf("LOCKED DISPATCHER\n");
         pthread_mutex_lock(&rd_wr_list);
@@ -219,7 +239,64 @@ void *dispatcher()
         printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
         #endif
 
+        //TODO -> CALCULAR TEMPO RESTANTE COM LOCALTIME_R E ASSIM
+        int tempo_restante;
+
+
+        //TODO esperar que algum edge server acabe (smv. edge server sig)
         // TODO verificar para qual edge server vai ser enviado
+        // Correr cada edge server, verificar se há algum cpu disponivel, se há, verificar se tem capacidade para computar a tarefa a tempo
+        // se não, passar para o proximo cpu disponivel. Se nao houver nenhum disponivel, espera
+
+        sem_wait(SMV->shm_edge_servers);
+
+        for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
+
+            if( edge_server_list[i].AVAILABLE_CPUS[0] == 1 ){ //CPU1 available on Edge server i
+
+                if( next_task->num_instructions/edge_server_list[i].CPU1_CAP < tempo_restante){ //CPU1 has capacity to run the task in time
+
+                    pipe_to_send = i;
+                    flag = 1;
+                    break;
+                }
+
+                flag = 1;
+
+            }else if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
+
+                if( next_task->num_instructions/edge_server_list[i].CPU2_CAP < tempo_restante){ //CPU2 has capacity to run the task in time
+
+                    pipe_to_send = i;
+                    flag = 1;
+                    break;
+                }
+                flag = 1;
+            }
+
+        }
+
+        //TODO  
+        if( flag == 1 && pipe_to_send == -1){
+            //descartada
+            //write_screen_log("tarefa x descartada por nao ter tempo para ser executada");
+            
+        }else if( flag == 1){
+            //send to the correct pipe NOT COMPLETE!!!!
+            char task_str[512];
+            snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
+            write(edge_server_list[pipe_to_send].pipe[1],&task_str,sizeof(task_str));
+
+        }else{
+            //Nenhum edge server disponivel, esperar por o sinal de algum deles e verificar novamente
+            pthread_cond_wait(&SMV->edge_server_sig,&rd_wr_list);
+
+            //TODO check se o CPU que ficou disponivel tem capacidades
+
+        }
+
+        sem_post(SMV->shm_edge_servers);
+
 
         pthread_mutex_unlock(&rd_wr_list);
     }
@@ -228,6 +305,7 @@ void *dispatcher()
     free(next_task);
     pthread_exit(NULL);
 }
+
 
 void end_sig_tm()
 {
@@ -368,7 +446,7 @@ void check_priorities(linked_list **lista)
         if (elapsed_seconds >= aux_node->timeout)
         {
 
-            // Escrever para o log e remover a task da fila
+            //TODO Escrever para o log e remover a task da fila
             write_screen_log("Task x removida da fila por timeout");
 
             aux_node = aux_node->next_node;

@@ -28,7 +28,7 @@ int init(char* file_name)
 
 
     //Create the shared memory
-    shm_id = shmget(IPC_PRIVATE, sizeof(Shared_Memory_Variables) + sizeof(Edge_Server)*edge_server_number_temp  , IPC_CREAT | 0700);
+    shm_id = shmget(IPC_PRIVATE, sizeof(Shared_Memory_Variables) + sizeof(Edge_Server)*edge_server_number_temp + sizeof(int[2]) * edge_server_number_temp , IPC_CREAT | 0700);
     if (shm_id < 1){
 		write_screen_log("Error creating shm memory!");
 		exit(1);
@@ -47,6 +47,12 @@ int init(char* file_name)
     SMV->log_write_mutex = sem_open("LOG_WRITE_MUTEX", O_CREAT | O_EXCL,0700,1);
     sem_unlink("SHM_WRITE");
     SMV->shm_write = sem_open("SHM_WRITE", O_CREAT | O_EXCL ,0700,1);
+    sem_unlink("SHM_ES");
+    SMV->shm_edge_servers = sem_open("SHM_ES", O_CREAT | O_EXCL ,0700,1);
+    sem_unlink("SHM_CHECK_PFM");
+    SMV->shm_edge_servers = sem_open("SHM_PFM", O_CREAT | O_EXCL ,0700,1);
+
+    pthread_cond_init(&(SMV->edge_server_sig),NULL);
 
 
     write_screen_log("Shared Memory created");
@@ -54,16 +60,13 @@ int init(char* file_name)
 
 
     //Update some info on the shared memory
-    sem_wait(SMV->shm_write);
+    sem_wait(SMV->shm_write); //TIRAR???
     
     SMV->QUEUE_POS = queue_pos_temp;
     SMV->MAX_WAIT = max_wait_temp;
     SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
     SMV->ALL_PERFORMANCE_MODE = 1;
     SMV->NUMBER_NON_EXECUTED_TASKS = 0;
-    // SMV->closed_edge_servers = 0;
-    // pthread_cond_init(&SMV->end_cond,NULL);
-    // pthread_mutex_init(&SMV->endcond_mutex,NULL);
 
 
     //Put edge servers on shared memory
@@ -80,13 +83,21 @@ int init(char* file_name)
             fscanf(initFile,"%12[^,],%d,%d",&edge_server_list[i].SERVER_NAME[0],&edge_server_list[i].CPU1_CAP,&edge_server_list[i].CPU2_CAP);
         }
 
+        //TODO CHECKAR SE O CPU1_CAP > CPU2_CAP, SE SIM FECHAR PROGRAMA????
+
+        edge_server_list[i].EDGE_SERVER_NUMBER = i;
         edge_server_list[i].IN_MAINTENANCE = 0;
         edge_server_list[i].NUMBER_EXECUTED_TASKS = 0;
         edge_server_list[i].NUMBER_MAINTENENCE_TASKS = 0;
         edge_server_list[i].PERFORMANCE_MODE = 1;
+
+        edge_server_list[i].AVAILABLE_CPUS[0] = 0;
+        edge_server_list[i].AVAILABLE_CPUS[1] = 0;
     }
 
     sem_post(SMV->shm_write);
+
+
 
 
     //Create named pipe
