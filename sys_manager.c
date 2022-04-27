@@ -50,7 +50,7 @@ int init(char* file_name)
     sem_unlink("SHM_ES");
     SMV->shm_edge_servers = sem_open("SHM_ES", O_CREAT | O_EXCL ,0700,1);
     sem_unlink("SHM_CHECK_PFM");
-    SMV->shm_edge_servers = sem_open("SHM_PFM", O_CREAT | O_EXCL ,0700,1);
+    SMV->check_performance_mode = sem_open("SHM_CHECK_PFM", O_CREAT | O_EXCL ,0700,1);
 
     pthread_cond_init(&(SMV->edge_server_sig),NULL);
 

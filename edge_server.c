@@ -27,7 +27,6 @@ int EdgeServer(int edge_server_number)
  
 
     // TODO
-    // CREATE THREAD TO CHECK ALTERAÇÃO DO MODO DE PERFORMANCE
     // RECEIVE TASKS AND MANAGE ACTIVE CPUS
     // UNNAMED PIPES
     char buffer[512];
@@ -37,7 +36,12 @@ int EdgeServer(int edge_server_number)
     while(1){
 
         //READ FROM PIPE FOR BUFFER
+        printf("Edge Server %d waiting for messages on unnamed pipe\n",glob_edge_server_number);
+        read( edge_server_list[ glob_edge_server_number].pipe[0] , buffer , 512);
 
+        #ifdef DEBUG
+        printf("DEBUG EDGE SERVER %d: %s\n",glob_edge_server_number,buffer);
+        #endif
 
         //check performance mode
         sem_wait(SMV->check_performance_mode);
@@ -50,6 +54,8 @@ int EdgeServer(int edge_server_number)
             aval_cpu1 = edge_server_list[edge_server_number].AVAILABLE_CPUS[0];
             sem_post(SMV->shm_edge_servers);
 
+
+
             if( aval_cpu1 == 0){
                 
                 //esperar que o CPU fique disponivel
@@ -57,9 +63,13 @@ int EdgeServer(int edge_server_number)
             
             }
 
+            printf("Edge Server %d before args thread\n",glob_edge_server_number);
+
             //send to vCPU
             thread_args.cpu = 1;
             strcpy( thread_args.task_buf, buffer);
+
+            printf("Edge Server %d before thread\n",glob_edge_server_number);
 
             pthread_create(&cpu_threads[0],NULL,vCPU, (void*) &thread_args);
 

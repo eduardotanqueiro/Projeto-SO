@@ -10,6 +10,12 @@ int TaskManager()
     #endif
 
     // signal(SIGINT,SIG_BLOCK); //não é preciso se for feito no main?/trocar para sigaction?
+    
+    // Open unnamed pipes
+    for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){
+        pipe(edge_server_list[i].pipe);
+    }
+
 
     edge_servers_processes = malloc(sizeof(pid_t) * (SMV->EDGE_SERVER_NUMBER));
 
@@ -34,10 +40,7 @@ int TaskManager()
     }
     write_screen_log("Task pipe opened");
 
-    // Open unnamed pipes
-    for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){
-        pipe(edge_server_list[i].pipe);
-    }
+
 
     // Create message queue
     id_node_counter = 0;
@@ -137,7 +140,7 @@ void *scheduler()
         //Espera por mensagens no TASK_PIPE
         if( select(fd_named_pipe+1,&read_set,NULL,NULL,NULL) > 0){
 
-            printf("MEXEU BUFFER\n");
+            //printf("MEXEU BUFFER\n");
 
             if(FD_ISSET(fd_named_pipe,&read_set)){
 
@@ -213,6 +216,8 @@ void *dispatcher()
     Node *next_task = (Node*)malloc(sizeof(Node));
     int flag; //checking if there is any available CPU
     int pipe_to_send;
+    time_t now;
+    struct tm check_time;
 
     while (1)
     {   
@@ -239,9 +244,13 @@ void *dispatcher()
         printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
         #endif
 
-        //TODO -> CALCULAR TEMPO RESTANTE COM LOCALTIME_R E ASSIM
-        int tempo_restante;
+        //
+        time(&now);
+        localtime_r(&now,&check_time);
+        int tempo_decorrido = (abs(check_time.tm_min - next_task->arrive_time.tm_min)%60 )*60 + abs(check_time.tm_sec - next_task->arrive_time.tm_sec)%60;
+        int tempo_restante = next_task->timeout - tempo_decorrido;
 
+        //printf("DEBUG DISPATCHER TEMPO RESTANTE: %d\n",tempo_restante);
 
         //TODO esperar que algum edge server acabe (smv. edge server sig)
         // TODO verificar para qual edge server vai ser enviado
@@ -250,11 +259,12 @@ void *dispatcher()
 
         sem_wait(SMV->shm_edge_servers);
 
+
         for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
 
             if( edge_server_list[i].AVAILABLE_CPUS[0] == 1 ){ //CPU1 available on Edge server i
 
-                if( next_task->num_instructions/edge_server_list[i].CPU1_CAP < tempo_restante){ //CPU1 has capacity to run the task in time
+                if( next_task->num_instructions/edge_server_list[i].CPU1_CAP <= tempo_restante){ //CPU1 has capacity to run the task in time
 
                     pipe_to_send = i;
                     flag = 1;
@@ -265,7 +275,7 @@ void *dispatcher()
 
             }else if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
 
-                if( next_task->num_instructions/edge_server_list[i].CPU2_CAP < tempo_restante){ //CPU2 has capacity to run the task in time
+                if( next_task->num_instructions/edge_server_list[i].CPU2_CAP <= tempo_restante){ //CPU2 has capacity to run the task in time
 
                     pipe_to_send = i;
                     flag = 1;
@@ -276,14 +286,19 @@ void *dispatcher()
 
         }
 
-        //TODO  
+        //TODO
+        char task_str[512];
+        memset(task_str,0,sizeof(task_str));
+
+        //printf("before sending dispatcher\n");
         if( flag == 1 && pipe_to_send == -1){
             //descartada
-            //write_screen_log("tarefa x descartada por nao ter tempo para ser executada");
+            snprintf(task_str,512,"TASK %d DISCARDED AT DISPATCHER",next_task->id_node);
+            write_screen_log(task_str);
             
         }else if( flag == 1){
-            //send to the correct pipe NOT COMPLETE!!!!
-            char task_str[512];
+            //send to the correct pipe
+            //printf("DEBUG DISPATCHER: SENDING TO PIPE %d\n",pipe_to_send);
             snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
             write(edge_server_list[pipe_to_send].pipe[1],&task_str,sizeof(task_str));
 
@@ -440,8 +455,8 @@ void check_priorities(linked_list **lista)
         time(&now);
         localtime_r(&now, &check_time);
 
-        elapsed_minutes = check_time.tm_min - aux_node->arrive_time.tm_min;
-        elapsed_seconds = elapsed_minutes * 60 + abs(check_time.tm_sec - aux_node->arrive_time.tm_sec);
+        elapsed_minutes = abs(check_time.tm_min - aux_node->arrive_time.tm_min) % 60;
+        elapsed_seconds = elapsed_minutes * 60 + abs(check_time.tm_sec - aux_node->arrive_time.tm_sec)%60;
 
         if (elapsed_seconds >= aux_node->timeout)
         {

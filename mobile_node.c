@@ -60,7 +60,7 @@ int generate_request(int num_instructions, int timeout){
     char buffer[BUFPIP];
     srand(time(0));
     
-    snprintf(buffer,BUFPIP,"%d;%d;%d\n", 1 + rand()%50000 , num_instructions , timeout);
+    snprintf(buffer,BUFPIP,"%d;%d;%d\n", 1 + rand()%500000 , num_instructions , timeout);
 
     if( write(fd_named_pipe,buffer,BUFPIP) < 0 ){
         perror("Write: ");
