@@ -6,7 +6,7 @@
 
 int EdgeServer(int edge_server_number)
 {
-
+    char buf[100];
 
     #ifdef DEBUG
     printf("ES_name: %s, CPU1_CAP: %d, CP2_CAP: %d\n", edge_server_list[edge_server_number].SERVER_NAME, edge_server_list[edge_server_number].CPU1_CAP, edge_server_list[edge_server_number].CPU2_CAP);
@@ -17,18 +17,19 @@ int EdgeServer(int edge_server_number)
     pthread_mutex_init(&read_end, NULL);
 
     //METER O CPU1 DISPONIVEL AO INICIO
-    //NÃO ESTAO A SER USADOS MECANISMOS DE SINCRONIZAÇÀO AQUI PORQUE CADA EDGE SERVER VAI ALTERAR UMA ZONA DIFERENTE
+    //NÃO ESTAO A SER USADOS MECANISMOS DE SINCRONIZAÇÃO AQUI PORQUE CADA EDGE SERVER VAI ALTERAR UMA ZONA DIFERENTE
     edge_server_list[ glob_edge_server_number].AVAILABLE_CPUS[0] = 1;
 
 
     // Resume CTRL+C handling on main thread
     //TODO -> TIRAR E FAZER VARIAVEL GLOBAL OU ENTAO NA SHM
     signal(SIGINT,end_sig);
- 
+    
+    //Log
+    snprintf(buf,sizeof(buf),"%s READY",edge_server_list[ glob_edge_server_number ].SERVER_NAME);
+    write_screen_log(buf);
 
-    // TODO
-    // RECEIVE TASKS AND MANAGE ACTIVE CPUS
-    // UNNAMED PIPES
+    //WORK
     char buffer[512];
     int aval_cpu1,aval_cpu2;
     args_cpu thread_args;
@@ -36,15 +37,16 @@ int EdgeServer(int edge_server_number)
     while(1){
 
         //READ FROM PIPE FOR BUFFER
-        printf("Edge Server %d waiting for messages on unnamed pipe\n",glob_edge_server_number);
+        //printf("Edge Server %d waiting for messages on unnamed pipe\n",glob_edge_server_number);
         read( edge_server_list[ glob_edge_server_number].pipe[0] , buffer , 512);
 
-        #ifdef DEBUG
-        printf("DEBUG EDGE SERVER %d: %s\n",glob_edge_server_number,buffer);
-        #endif
+        // #ifdef DEBUG
+        // printf("DEBUG EDGE SERVER %d: %s\n",glob_edge_server_number,buffer);
+        // #endif
 
         //check performance mode
         sem_wait(SMV->check_performance_mode);
+
         if(SMV->ALL_PERFORMANCE_MODE == 1){
 
             sem_post(SMV->check_performance_mode);
@@ -54,8 +56,7 @@ int EdgeServer(int edge_server_number)
             aval_cpu1 = edge_server_list[edge_server_number].AVAILABLE_CPUS[0];
             sem_post(SMV->shm_edge_servers);
 
-
-
+            
             if( aval_cpu1 == 0){
                 
                 //esperar que o CPU fique disponivel
@@ -63,13 +64,9 @@ int EdgeServer(int edge_server_number)
             
             }
 
-            printf("Edge Server %d before args thread\n",glob_edge_server_number);
-
             //send to vCPU
             thread_args.cpu = 1;
             strcpy( thread_args.task_buf, buffer);
-
-            printf("Edge Server %d before thread\n",glob_edge_server_number);
 
             pthread_create(&cpu_threads[0],NULL,vCPU, (void*) &thread_args);
 
@@ -169,7 +166,7 @@ void* vCPU(void* arg){
     edge_server_list[ glob_edge_server_number ].NUMBER_EXECUTED_TASKS++;
 
     //Avisar o task manager que há um CPU disponivel;
-    pthread_cond_broadcast(&SMV->edge_server_sig);
+    pthread_cond_signal(&SMV->edge_server_sig);
     
     sem_post(SMV->shm_edge_servers);
 
@@ -179,9 +176,10 @@ void* vCPU(void* arg){
 
 void end_sig()
 {
-
+    char buf[80];
     // write_screen_log("Cleaning up one edge server");
-    printf("Cleaning up edge server no %d\n", glob_edge_server_number);
+    snprintf(buf,sizeof(buf),"CLEANING UP EDGE SERVER NO. %d", glob_edge_server_number);
+    write_screen_log(buf);
 
     // TODO
     // SIGNAL CPU THREADS TO END WORK AND FINISH
@@ -198,7 +196,8 @@ void end_sig()
 
     pthread_mutex_destroy(&read_end);
 
-    printf("Edge server no %d ended cleanup\n", glob_edge_server_number);
-    // write_screen_log("An edge server just completed cleanup");
+    snprintf(buf,sizeof(buf),"CLEANUP COMPLETE ON EDGE SERVER NO. %d", glob_edge_server_number);
+    write_screen_log(buf);
+
     exit(0);
 }

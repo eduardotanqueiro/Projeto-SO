@@ -63,11 +63,14 @@ void cleanup(){
     sem_close(SMV->shm_edge_servers);
     sem_close(SMV->check_performance_mode);
 
-    pthread_cond_destroy(&(SMV->edge_server_sig));
+
+    pthread_cond_destroy(&SMV->edge_server_sig);
+    pthread_condattr_destroy(&SMV->attr_cond);
     
     #ifdef DEBUG
     printf("aqui3\n");
     #endif
+
     //Pipe
     unlink(PIPE_NAME);
     close(fd_named_pipe);

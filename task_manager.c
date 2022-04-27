@@ -151,6 +151,8 @@ void *scheduler()
 
                     printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
 
+                    //TODO Check if it's a QUIT or STATS command before continuing
+
                     //Split arguments
                     tok = strtok_r(buffer_pipe,";",&resto);
                     id_task = atoi(tok);
@@ -214,22 +216,18 @@ void *dispatcher()
     #endif
 
     Node *next_task = (Node*)malloc(sizeof(Node));
-    int flag; //checking if there is any available CPU
-    int pipe_to_send;
-    time_t now;
-    struct tm check_time;
+
 
     while (1)
     {   
-        flag = 0;
-        pipe_to_send = -1;
 
         //printf("LOCKED DISPATCHER\n");
         pthread_mutex_lock(&rd_wr_list);
         //printf("UNLOCKED DISPATCHER %d\n",fila_mensagens->node_number);
 
         if (fila_mensagens->node_number == 0)
-        { // Se a fila está vazia, a thread espera por um sinal do scheduler a avisar que há uma nova tarefa na fila
+        { 
+            // Se a fila está vazia, a thread espera por um sinal do scheduler a avisar que há uma nova tarefa na fila
             pthread_cond_wait(&new_task_cond, &rd_wr_list);
         }
 
@@ -244,81 +242,106 @@ void *dispatcher()
         printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
         #endif
 
-        //
-        time(&now);
-        localtime_r(&now,&check_time);
-        int tempo_decorrido = (abs(check_time.tm_min - next_task->arrive_time.tm_min)%60 )*60 + abs(check_time.tm_sec - next_task->arrive_time.tm_sec)%60;
-        int tempo_restante = next_task->timeout - tempo_decorrido;
+ 
+        //try to send the task to some edge server. if there are none CPUs available, waits for a signal saying that some CPU just ended a task
+        if( try_to_send(next_task) == 1){
 
-        //printf("DEBUG DISPATCHER TEMPO RESTANTE: %d\n",tempo_restante);
-
-        //TODO esperar que algum edge server acabe (smv. edge server sig)
-        // TODO verificar para qual edge server vai ser enviado
-        // Correr cada edge server, verificar se há algum cpu disponivel, se há, verificar se tem capacidade para computar a tarefa a tempo
-        // se não, passar para o proximo cpu disponivel. Se nao houver nenhum disponivel, espera
-
-        sem_wait(SMV->shm_edge_servers);
-
-
-        for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
-
-            if( edge_server_list[i].AVAILABLE_CPUS[0] == 1 ){ //CPU1 available on Edge server i
-
-                if( next_task->num_instructions/edge_server_list[i].CPU1_CAP <= tempo_restante){ //CPU1 has capacity to run the task in time
-
-                    pipe_to_send = i;
-                    flag = 1;
-                    break;
-                }
-
-                flag = 1;
-
-            }else if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
-
-                if( next_task->num_instructions/edge_server_list[i].CPU2_CAP <= tempo_restante){ //CPU2 has capacity to run the task in time
-
-                    pipe_to_send = i;
-                    flag = 1;
-                    break;
-                }
-                flag = 1;
-            }
-
-        }
-
-        //TODO
-        char task_str[512];
-        memset(task_str,0,sizeof(task_str));
-
-        //printf("before sending dispatcher\n");
-        if( flag == 1 && pipe_to_send == -1){
-            //descartada
-            snprintf(task_str,512,"TASK %d DISCARDED AT DISPATCHER",next_task->id_node);
-            write_screen_log(task_str);
-            
-        }else if( flag == 1){
-            //send to the correct pipe
-            //printf("DEBUG DISPATCHER: SENDING TO PIPE %d\n",pipe_to_send);
-            snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
-            write(edge_server_list[pipe_to_send].pipe[1],&task_str,sizeof(task_str));
-
-        }else{
             //Nenhum edge server disponivel, esperar por o sinal de algum deles e verificar novamente
+            printf("DEBUG DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS\n");
             pthread_cond_wait(&SMV->edge_server_sig,&rd_wr_list);
 
-            //TODO check se o CPU que ficou disponivel tem capacidades
+            printf("DEBUG DISPATCHER: 1 CPU BECAME AVAILABLE\n");
+            try_to_send(next_task);
 
         }
 
-        sem_post(SMV->shm_edge_servers);
-
-
         pthread_mutex_unlock(&rd_wr_list);
+    
     }
+
 
 
     free(next_task);
     pthread_exit(NULL);
+}
+
+int try_to_send(Node *next_task){
+
+    int flag = 0, pipe_to_send = -1; 
+    int *flag_ptr = &flag; //checking if there is any available CPU
+    int *pipe_to_send_ptr = &pipe_to_send;
+
+
+    //Check if CPUs are available
+    check_cpus(next_task,&flag_ptr,&pipe_to_send_ptr);
+
+    char task_str[512];
+    memset(task_str,0,sizeof(task_str));
+
+    //printf("before sending dispatcher\n");
+    if( flag == 1 && pipe_to_send == -1){
+        //descartada
+        snprintf(task_str,512,"TASK %d DISCARDED AT DISPATCHER: NO TIME TO COMPLETE",next_task->id_node);
+        write_screen_log(task_str);
+        return 0;
+
+    }else if( flag == 1){
+        //send to the correct pipe
+        //printf("DEBUG DISPATCHER: SENDING TO PIPE %d\n",pipe_to_send);
+        snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
+        write(edge_server_list[ pipe_to_send ].pipe[1],&task_str,sizeof(task_str));
+        return 0;
+
+    }else
+        return 1;
+
+}
+
+/*  
+    Check for available CPUs in the Edge Servers
+*/
+void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
+
+    time_t now;
+    struct tm check_time;
+
+    time(&now);
+    localtime_r(&now,&check_time);
+    int tempo_decorrido = (abs(check_time.tm_min - next_task->arrive_time.tm_min)%60 )*60 + abs(check_time.tm_sec - next_task->arrive_time.tm_sec)%60;
+    int tempo_restante = next_task->timeout - tempo_decorrido;
+
+    sem_wait(SMV->shm_edge_servers);
+
+    for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
+
+        if( edge_server_list[i].AVAILABLE_CPUS[0] == 1 ){ //CPU1 available on Edge server i
+
+            if( next_task->num_instructions/edge_server_list[i].CPU1_CAP <= tempo_restante){ //CPU1 has capacity to run the task in time
+
+                *(*pipe_to_send) = i;
+                *(*flag) = 1;
+                break;
+            }
+
+            *(*flag) = 1;
+
+        }else if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
+
+            if( next_task->num_instructions/edge_server_list[i].CPU2_CAP <= tempo_restante){ //CPU2 has capacity to run the task in time
+
+                *(*pipe_to_send) = i;
+                *(*flag) = 1;
+                break;
+            }
+
+            *(*flag) = 1;
+        }
+
+    }
+
+    sem_post(SMV->shm_edge_servers);
+
+
 }
 
 

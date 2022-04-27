@@ -52,7 +52,10 @@ int init(char* file_name)
     sem_unlink("SHM_CHECK_PFM");
     SMV->check_performance_mode = sem_open("SHM_CHECK_PFM", O_CREAT | O_EXCL ,0700,1);
 
-    pthread_cond_init(&(SMV->edge_server_sig),NULL);
+    pthread_condattr_init(&SMV->attr_cond);
+    pthread_condattr_setpshared(&SMV->attr_cond,PTHREAD_PROCESS_SHARED);
+
+    pthread_cond_init(&SMV->edge_server_sig, &SMV->attr_cond);
 
 
     write_screen_log("Shared Memory created");

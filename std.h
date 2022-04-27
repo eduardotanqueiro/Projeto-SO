@@ -63,6 +63,7 @@ typedef struct
     sem_t *shm_edge_servers;
     sem_t *check_performance_mode;
 
+    pthread_condattr_t attr_cond;
     pthread_cond_t edge_server_sig;
 
 
