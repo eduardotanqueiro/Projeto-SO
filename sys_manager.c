@@ -14,12 +14,30 @@ int init(char* file_name)
     FILE* initFile;
     if ( (initFile = fopen(file_name,"r")) == NULL)
     {
-        write_screen_log("Non-existent config file!!");
+        printf("Non-existent config file!!\n");
         exit(1);
     }
 
 
     //TODO PROTEGER CONTRA MAU INPUT DO CONFIG FILE
+    //Check file with regex functions
+    /*
+    char *all_cfg_file = (char*) malloc(sizeof(char) * 8192);
+
+    if (fscanf(initFile,"%s",all_cfg_file) != 1){
+        printf("ERROR READING CONFIG FILE\n");
+        exit(1);
+    }
+
+    if( check_regex(all_cfg_file, "^([0-9]+(\r\n|\r|\n)){3}([a-zA-Z0-9_]{3,},[0-9]+,[0-9]+(\r\n|\r|\n)?){2,}$") != 0){
+        printf("INVALID CONFIG FILE FORMAT\n");
+        exit(1);
+    }
+
+    free(all_cfg_file);
+    rewind(initFile);
+    */
+
 
     //Process the config file data
     int queue_pos_temp,max_wait_temp,edge_server_number_temp;
@@ -51,15 +69,19 @@ int init(char* file_name)
     SMV->shm_edge_servers = sem_open("SHM_ES", O_CREAT | O_EXCL ,0700,1);
     sem_unlink("SHM_CHECK_PFM");
     SMV->check_performance_mode = sem_open("SHM_CHECK_PFM", O_CREAT | O_EXCL ,0700,1);
+    sem_unlink("CHECK_END");
+    SMV->check_end = sem_open("CHECK_END",O_CREAT | O_EXCL ,0700,1);
+
 
     pthread_condattr_init(&SMV->attr_cond);
     pthread_condattr_setpshared(&SMV->attr_cond,PTHREAD_PROCESS_SHARED);
 
     pthread_cond_init(&SMV->edge_server_sig, &SMV->attr_cond);
+    pthread_cond_init(&SMV->end_system_sig,&SMV->attr_cond);
 
 
     write_screen_log("Shared Memory created");
-    write_screen_log("Shared Memory attached");
+    //write_screen_log("Shared Memory attached");
 
 
     //Update some info on the shared memory
@@ -70,6 +92,8 @@ int init(char* file_name)
     SMV->EDGE_SERVER_NUMBER = edge_server_number_temp;
     SMV->ALL_PERFORMANCE_MODE = 1;
     SMV->NUMBER_NON_EXECUTED_TASKS = 0;
+
+    SMV->total_response_time = 0;
 
 
     //Put edge servers on shared memory
@@ -106,7 +130,7 @@ int init(char* file_name)
     //Create named pipe
 	if ( (mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0666)<0) ) {
 		write_screen_log("Cannot create pipe");
-        //cleanup
+        //TODO cleanup
 		exit(1);
 	}
     write_screen_log("Task piped created");
@@ -164,4 +188,18 @@ int init(char* file_name)
 
     fclose(initFile);
     return 0;
+}
+
+
+int check_regex(char *text, char *regex){
+
+    regex_t reg;
+
+    regcomp(&reg,regex,REG_EXTENDED);
+
+    int rt = regexec(&reg,text,0,NULL,0);
+
+    regfree(&reg);
+
+    return rt;
 }

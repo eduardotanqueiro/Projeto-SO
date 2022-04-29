@@ -9,8 +9,14 @@ int Monitor()
 
     #ifdef DEBUG
     printf("Monitor!!\n");
-    pause();
+    //pause();
     #endif
+
+    while(1){
+        //recebe o sinal da thread quando é colocada uma tarefa na fila
+        //pthread_cond_wait(,);
+
+    }
 
     return 0;
 }

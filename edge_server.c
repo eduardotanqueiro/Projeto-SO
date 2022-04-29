@@ -13,8 +13,6 @@ int EdgeServer(int edge_server_number)
     glob_edge_server_number = edge_server_number;
     #endif
 
-    end_system = 0;
-    pthread_mutex_init(&read_end, NULL);
 
     //METER O CPU1 DISPONIVEL AO INICIO
     //NÃO ESTAO A SER USADOS MECANISMOS DE SINCRONIZAÇÃO AQUI PORQUE CADA EDGE SERVER VAI ALTERAR UMA ZONA DIFERENTE
@@ -23,7 +21,14 @@ int EdgeServer(int edge_server_number)
 
     // Resume CTRL+C handling on main thread
     //TODO -> TIRAR E FAZER VARIAVEL GLOBAL OU ENTAO NA SHM
-    signal(SIGINT,end_sig);
+    //signal(SIGINT,end_sig);
+
+    //Avisar Maintenance que está a trabalhar
+    //put message on MQ
+
+    //Thread that controls the end of the system
+    pthread_t monitor;
+    pthread_create(&monitor,NULL,MonitorEnd,0);
     
     //Log
     snprintf(buf,sizeof(buf),"%s READY",edge_server_list[ glob_edge_server_number ].SERVER_NAME);
@@ -35,6 +40,15 @@ int EdgeServer(int edge_server_number)
     args_cpu thread_args;
 
     while(1){
+
+        //check if system received CTRL+C
+        // sem_wait(SMV->check_end);
+        // if(SMV->end_system == 1){
+        //     sem_post(SMV->check_end);
+        //     end_sig();
+        // }
+        // sem_post(SMV->check_end);
+
 
         //READ FROM PIPE FOR BUFFER
         //printf("Edge Server %d waiting for messages on unnamed pipe\n",glob_edge_server_number);
@@ -174,30 +188,79 @@ void* vCPU(void* arg){
 }
 
 
-void end_sig()
-{
+
+void* MonitorEnd(){
+
+    //Wait for System Manager Signal saying that we should end servers
+    //resolver isto dos mutexes
+    //trocar para sinais tipo SIGUSR1?? Verificar unblocking the signals em apenas 1 thread
+    pthread_mutex_t m;
+    pthread_mutex_lock(&m);
+
+    pthread_cond_wait(&SMV->end_system_sig,&m);
+
+    //printf("EDGE SERVER %d RECEIVED END SIGNAL\n",glob_edge_server_number);
+
+    //check performance mode and wait for threads if necessary
+    sem_wait(SMV->check_performance_mode);
+
+    if(SMV->ALL_PERFORMANCE_MODE == 1){
+
+        sem_post(SMV->check_performance_mode);
+
+        //check CPU1 available state
+        sem_wait(SMV->shm_edge_servers);
+        int aval_cpu1 = edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0];
+        sem_post(SMV->shm_edge_servers);
+
+        if( aval_cpu1 == 0){
+            
+            //esperar que o CPU termine
+            pthread_join(cpu_threads[0],NULL);
+        
+        }
+
+
+    }else if (SMV->ALL_PERFORMANCE_MODE == 2){
+        
+        sem_post(SMV->check_performance_mode);
+
+
+        //check both CPUs available state
+        sem_wait(SMV->shm_edge_servers);
+        int aval_cpu1 = edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0];
+        int aval_cpu2 = edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1];
+        sem_post(SMV->shm_edge_servers);
+
+        if( (aval_cpu1 == 0) && (aval_cpu2 == 0)){ //Nenhum CPU disponivel
+
+            //wait for both CPUs
+            pthread_join(cpu_threads[0],NULL);
+            pthread_join(cpu_threads[1],NULL);
+
+        }
+        else if( aval_cpu2 == 0){ //CPU1 disponível
+
+            //wait for CPU2
+            pthread_join(cpu_threads[1],NULL);
+
+        }
+        else if ( aval_cpu1 == 0 ){ //CPU2 disponível
+
+            //wait for CPU1
+            pthread_join(cpu_threads[0],NULL);
+
+        }
+
+
+
+    }
+
     char buf[80];
-    // write_screen_log("Cleaning up one edge server");
-    snprintf(buf,sizeof(buf),"CLEANING UP EDGE SERVER NO. %d", glob_edge_server_number);
-    write_screen_log(buf);
-
-    // TODO
-    // SIGNAL CPU THREADS TO END WORK AND FINISH
-    // pthread_cancel(cpu_threads[0]);
-    // pthread_cancel(cpu_threads[1]);
-
-    pthread_mutex_lock(&read_end);
-    end_system = 1;
-    pthread_mutex_unlock(&read_end);
-
-    // wait for CPU threads to end work
-    for (int i = 0; i < 2; i++)
-        pthread_join(cpu_threads[i], NULL);
-
-    pthread_mutex_destroy(&read_end);
-
-    snprintf(buf,sizeof(buf),"CLEANUP COMPLETE ON EDGE SERVER NO. %d", glob_edge_server_number);
+    snprintf(buf,sizeof(buf),"CLOSING EDGE SERVER NO. %d", glob_edge_server_number);
     write_screen_log(buf);
 
     exit(0);
+
 }
+

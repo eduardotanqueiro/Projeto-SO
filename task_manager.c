@@ -182,7 +182,7 @@ void *scheduler()
                         
                         //Avisar o dispatcher que há mensangens na fila
                         if(fila_mensagens->node_number == 1){ //????
-                            // Avisar o dispatcher que já há mensangens na fila
+                            
                             pthread_cond_signal(&new_task_cond);
                         }
                     }
@@ -239,8 +239,10 @@ void *dispatcher()
         
 
         #ifdef DEBUG
-        printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
+        //printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
         #endif
+
+
 
  
         //try to send the task to some edge server. if there are none CPUs available, waits for a signal saying that some CPU just ended a task
@@ -288,6 +290,11 @@ int try_to_send(Node *next_task){
     }else if( flag == 1){
         //send to the correct pipe
         //printf("DEBUG DISPATCHER: SENDING TO PIPE %d\n",pipe_to_send);
+        snprintf(task_str,sizeof(task_str),"TASK %d SELECTED FOR EXECUTION ON %s",next_task->id_node,edge_server_list[ pipe_to_send ].SERVER_NAME);
+        write_screen_log(task_str);
+        memset(task_str,0,sizeof(task_str));
+
+        //TODO FAZER TEMPO MEDIO DE RESPOSTA
         snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
         write(edge_server_list[ pipe_to_send ].pipe[1],&task_str,sizeof(task_str));
         return 0;
@@ -350,6 +357,10 @@ void end_sig_tm()
 
     write_screen_log("Cleaning up Task Manager");
 
+    // CLOSE THREADS
+    pthread_cancel(tm_threads[0]);
+    pthread_cancel(tm_threads[1]);
+
     // TODO
     // ESCREVER NO LOG AS MENSAGENS QUE RESTA NA FILA DO SCHEDULER + NAMED PIPE
     // CLOSE MESSAGE QUEUE
@@ -367,9 +378,7 @@ void end_sig_tm()
         wait(NULL);
     }
 
-    // CLOSE THREADS
-    pthread_cancel(tm_threads[0]);
-    pthread_cancel(tm_threads[1]);
+
 
     // IPCS
     pthread_mutex_destroy(&rd_wr_list);
@@ -487,9 +496,11 @@ void check_priorities(linked_list **lista)
             //TODO Escrever para o log e remover a task da fila
             write_screen_log("Task x removida da fila por timeout");
 
+            //errado, redo
+            int id_to_remove = aux_node->id_node;
             aux_node = aux_node->next_node;
 
-            remove_from_list(&fila_mensagens, aux_node->id_node);
+            remove_from_list(&fila_mensagens, id_to_remove);
         }
         else
         {

@@ -11,7 +11,6 @@ int main(int argc, char** argv){
     signal(SIGTSTP,SIG_IGN);
 
 
-
     if(argc == 2)
         init(argv[1]);
                
@@ -40,14 +39,21 @@ void cleanup(){
     printf("aqui1\n");
     #endif
 
-    //FLAG NA SHMM PARA TERMINAR TASK MANAGER E EDGE SERVERS
+    //FLAG NA SHMM PARA TERMINAR EDGE SERVERS
+    //sem_wait(SMV->check_end);
+    //SMV->end_system = 1;
+    pthread_cond_broadcast(&SMV->end_system_sig);
+    //sem_post(SMV->check_end);
     
+
     // ESPERA AQUI, SÓ PODE FECHAR A SHM QUANDO TODOS OS OUTROS PROCESSOS FECHAREM
     //  WAIT FOR CHILDS
     for(int i = 0;i<3;i++){
         wait(NULL);
     }
     
+    //PRINT ESTATÍSTICAS
+    sigtstp();
 
     #ifdef DEBUG
     printf("aqui2\n");
@@ -58,13 +64,16 @@ void cleanup(){
     sem_unlink("SHM_WRITE");
     sem_unlink("SHM_ES");
     sem_unlink("SHM_CHECK_PFM");
+    sem_unlink("CHECK_END");
     sem_close(SMV->shm_write);
     sem_close(SMV->log_write_mutex);
     sem_close(SMV->shm_edge_servers);
     sem_close(SMV->check_performance_mode);
+    sem_close(SMV->check_end);
 
 
     pthread_cond_destroy(&SMV->edge_server_sig);
+    pthread_cond_destroy(&SMV->end_system_sig);
     pthread_condattr_destroy(&SMV->attr_cond);
     
     #ifdef DEBUG
@@ -131,11 +140,10 @@ void sigtstp(){
     char buffer[BUFSIZ];
     int total_tasks = 0;
 
-    //TODO : MEAN OF RESPONSE TIME BETWEEN EACH TASK
-
-    sem_wait(SMV->shm_write);
+    sem_wait(SMV->shm_edge_servers);
 
     for(int i = 0;i<SMV->EDGE_SERVER_NUMBER;i++){
+
         memset(buffer,0,BUFSIZ);
         snprintf(buffer,BUFSIZ,"Completed tasks at Edge Server %d: %d",i,edge_server_list[i].NUMBER_EXECUTED_TASKS);
         write_screen_log(buffer);
@@ -145,14 +153,28 @@ void sigtstp(){
         write_screen_log(buffer); 
         
         total_tasks += edge_server_list[i].NUMBER_EXECUTED_TASKS;
+
     }
+
+    sem_post(SMV->shm_edge_servers);
+
+    memset(buffer,0,BUFSIZ);
+    snprintf(buffer,BUFSIZ,"Mean of response time between tasks: %d", (int)SMV->total_response_time/total_tasks );
+    write_screen_log(buffer);
 
     memset(buffer,0,BUFSIZ);
     snprintf(buffer,BUFSIZ,"Total number of completed tasks: %d",total_tasks);
     write_screen_log(buffer);
 
+    sem_wait(SMV->shm_write);
+
     memset(buffer,0,BUFSIZ);
     snprintf(buffer,BUFSIZ,"Number of non-executed tasks: %d",SMV->NUMBER_NON_EXECUTED_TASKS);
     write_screen_log(buffer);
+    
+    sem_post(SMV->shm_write);
 
 }
+
+
+

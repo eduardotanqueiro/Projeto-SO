@@ -57,7 +57,7 @@ typedef struct
     pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager processes
 
 
-    //Semaphores
+    //General Semaphores
     sem_t *log_write_mutex;
     sem_t *shm_write;
     sem_t *shm_edge_servers;
@@ -70,11 +70,14 @@ typedef struct
     //General Edge Servers Performance Mode
     int ALL_PERFORMANCE_MODE;
 
+    //
+    int total_response_time;
+
     //Variables used when system is exiting
-    //pthread_mutex_t shm_rdwr_exit;
-    // int closed_edge_servers;
-    // pthread_cond_t end_cond;
-    // pthread_mutex_t endcond_mutex;
+    pthread_cond_t end_system_sig;
+    sem_t *check_end;
+    int end_system;
+
 
 
 } Shared_Memory_Variables;
