@@ -158,6 +158,8 @@ void sigtstp(){
 
     sem_post(SMV->shm_edge_servers);
 
+    sem_wait(SMV->shm_write);
+
     memset(buffer,0,BUFSIZ);
     snprintf(buffer,BUFSIZ,"Mean of response time between tasks: %d", (int)SMV->total_response_time/total_tasks );
     write_screen_log(buffer);
@@ -166,7 +168,6 @@ void sigtstp(){
     snprintf(buffer,BUFSIZ,"Total number of completed tasks: %d",total_tasks);
     write_screen_log(buffer);
 
-    sem_wait(SMV->shm_write);
 
     memset(buffer,0,BUFSIZ);
     snprintf(buffer,BUFSIZ,"Number of non-executed tasks: %d",SMV->NUMBER_NON_EXECUTED_TASKS);

@@ -169,8 +169,13 @@ void *scheduler()
 
                     //Check if message queue is full
                     if(fila_mensagens->node_number == SMV->QUEUE_POS){
-                        //TODO -> ESCREVER PARA O LOG
-                        printf("Fila Cheia. Mensagem Descartada");
+                        
+                        //LOG
+                        write_screen_log("TASK MANAGER QUEUE FULL, MESSAGE DISCARDED");
+                        
+                        sem_wait(SMV->shm_write);
+                        SMV->NUMBER_NON_EXECUTED_TASKS++;
+                        sem_post(SMV->shm_write);
 
                     }
                     else{
@@ -181,7 +186,7 @@ void *scheduler()
                         insert_list(&fila_mensagens,timeout_priority,num_instructions,timeout_priority);
                         
                         //Avisar o dispatcher que há mensangens na fila
-                        if(fila_mensagens->node_number == 1){ //????
+                        if(fila_mensagens->node_number == 1){
                             
                             pthread_cond_signal(&new_task_cond);
                         }
@@ -283,18 +288,30 @@ int try_to_send(Node *next_task){
     //printf("before sending dispatcher\n");
     if( flag == 1 && pipe_to_send == -1){
         //descartada
+
+        //mean response time / non executed tasks
+        sem_wait(SMV->shm_write);
+        SMV->total_response_time += time_since_arrive(next_task);
+        SMV->NUMBER_NON_EXECUTED_TASKS++;
+        sem_post(SMV->shm_write);
+
+        //descartar
         snprintf(task_str,512,"TASK %d DISCARDED AT DISPATCHER: NO TIME TO COMPLETE",next_task->id_node);
         write_screen_log(task_str);
         return 0;
 
     }else if( flag == 1){
         //send to the correct pipe
-        //printf("DEBUG DISPATCHER: SENDING TO PIPE %d\n",pipe_to_send);
         snprintf(task_str,sizeof(task_str),"TASK %d SELECTED FOR EXECUTION ON %s",next_task->id_node,edge_server_list[ pipe_to_send ].SERVER_NAME);
         write_screen_log(task_str);
         memset(task_str,0,sizeof(task_str));
 
-        //TODO FAZER TEMPO MEDIO DE RESPOSTA
+        //mean response time
+        sem_wait(SMV->shm_write);
+        SMV->total_response_time += time_since_arrive(next_task);
+        sem_post(SMV->shm_write);
+
+        //send to server
         snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
         write(edge_server_list[ pipe_to_send ].pipe[1],&task_str,sizeof(task_str));
         return 0;
@@ -332,7 +349,7 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
 
             *(*flag) = 1;
         }
-        
+
         if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
 
             if( next_task->num_instructions/edge_server_list[i].CPU2_CAP <= tempo_restante){ //CPU2 has capacity to run the task in time
@@ -474,9 +491,9 @@ int remove_from_list(linked_list **lista, int id_node)
 void check_priorities(linked_list **lista)
 {
 
-    time_t now;
-    struct tm check_time;
-    int elapsed_minutes;
+    // time_t now;
+    // struct tm check_time;
+    // int elapsed_minutes;
     int elapsed_seconds;
 
     Node *aux_node = (*lista)->first_node;
@@ -485,11 +502,12 @@ void check_priorities(linked_list **lista)
     {
 
         // Check if task has passed timeout;
-        time(&now);
-        localtime_r(&now, &check_time);
+        // time(&now);
+        // localtime_r(&now, &check_time);
 
-        elapsed_minutes = abs(check_time.tm_min - aux_node->arrive_time.tm_min) % 60;
-        elapsed_seconds = elapsed_minutes * 60 + abs(check_time.tm_sec - aux_node->arrive_time.tm_sec)%60;
+        // elapsed_minutes = abs(check_time.tm_min - aux_node->arrive_time.tm_min) % 60;
+        // elapsed_seconds = elapsed_minutes * 60 + abs(check_time.tm_sec - aux_node->arrive_time.tm_sec)%60;
+        elapsed_seconds = time_since_arrive(aux_node);
 
         if (elapsed_seconds >= aux_node->timeout)
         {
@@ -553,4 +571,20 @@ void get_next_task(linked_list **lista, Node **next_task)
 
     // Remove the most prioritary node from the list
     remove_from_list(lista, id_most_priority_task);
+}
+
+int time_since_arrive(Node *task){
+
+    time_t now;
+    struct tm check_time;
+    int elapsed_minutes;
+    int elapsed_seconds;
+
+    time(&now);
+    localtime_r(&now, &check_time);
+
+    elapsed_minutes = abs(check_time.tm_min - task->arrive_time.tm_min) % 60;
+    elapsed_seconds = elapsed_minutes * 60 + abs(check_time.tm_sec - task->arrive_time.tm_sec)%60;
+
+    return elapsed_seconds;
 }

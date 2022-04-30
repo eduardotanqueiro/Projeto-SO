@@ -51,3 +51,4 @@ void* dispatcher();
 //
 void check_cpus(Node *next_task, int **flag, int **pipe_to_send);
 int try_to_send(Node *next_task);
+int time_since_arrive(Node *task);
