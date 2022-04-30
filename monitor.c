@@ -8,8 +8,22 @@ int Monitor()
     signal(SIGINT,SIG_DFL);
 
     #ifdef DEBUG
-    printf("Monitor!!\n");
-    //pause();
+    printf("Monitor!!\nTESTING PERFORMANCE MODE 2\n");
+
+    sem_wait(SMV->check_performance_mode);
+    SMV->ALL_PERFORMANCE_MODE = 2;
+
+    sem_wait(SMV->shm_edge_servers);
+    for(int i = 0;i< SMV->EDGE_SERVER_NUMBER; i++){
+        edge_server_list[i].AVAILABLE_CPUS[1] = 1;
+    }
+    sem_post(SMV->shm_edge_servers);
+
+
+
+    sem_post(SMV->check_performance_mode);
+
+    pause();
     #endif
 
     while(1){

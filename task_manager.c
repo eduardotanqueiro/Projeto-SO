@@ -331,8 +331,9 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
             }
 
             *(*flag) = 1;
-
-        }else if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
+        }
+        
+        if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
 
             if( next_task->num_instructions/edge_server_list[i].CPU2_CAP <= tempo_restante){ //CPU2 has capacity to run the task in time
 
