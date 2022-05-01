@@ -32,8 +32,7 @@ typedef struct{
 
 int id_node_counter;
 linked_list *fila_mensagens;
-pthread_mutex_t rd_wr_list;
-pthread_cond_t new_task_cond;
+
 
 //linked list
 void insert_list(linked_list** lista, int priority, int num_instructions, int timeout);

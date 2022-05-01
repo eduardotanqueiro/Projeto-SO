@@ -74,7 +74,12 @@ void cleanup(){
 
     pthread_cond_destroy(&SMV->edge_server_sig);
     pthread_cond_destroy(&SMV->end_system_sig);
+    pthread_cond_destroy(&SMV->new_task_cond);
     pthread_condattr_destroy(&SMV->attr_cond);
+
+
+    pthread_mutex_destroy(&SMV->sem_tm_queue);
+    pthread_mutexattr_destroy(&SMV->attr_mutex);
     
     #ifdef DEBUG
     printf("aqui3\n");

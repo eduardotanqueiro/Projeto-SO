@@ -45,12 +45,8 @@ int TaskManager()
     // Create message queue
     id_node_counter = 0;
     fila_mensagens = (linked_list *)malloc(sizeof(linked_list));
-    fila_mensagens->node_number = 0;
+    SMV->node_number = 0;
     fila_mensagens->first_node = NULL;
-
-    // Semaforo para sincronizar escritura/leitura na fila de mensagens
-    pthread_mutex_init(&rd_wr_list, NULL);
-    pthread_cond_init(&new_task_cond, NULL);
 
     // Handle End Signal
     signal(SIGINT, end_sig_tm);
@@ -165,10 +161,10 @@ void *scheduler()
                     timeout_priority = atoi(tok);
 
 
-                    pthread_mutex_lock(&rd_wr_list);
+                    pthread_mutex_lock(&SMV->sem_tm_queue);
 
                     //Check if message queue is full
-                    if(fila_mensagens->node_number == SMV->QUEUE_POS){
+                    if(SMV->node_number == SMV->QUEUE_POS){
                         
                         //LOG
                         write_screen_log("TASK MANAGER QUEUE FULL, MESSAGE DISCARDED");
@@ -179,20 +175,24 @@ void *scheduler()
 
                     }
                     else{
+                        
+
 
                         //Reevaluate priorities and insert into message list
                         check_priorities(&fila_mensagens);
 
                         insert_list(&fila_mensagens,timeout_priority,num_instructions,timeout_priority);
                         
-                        //Avisar o dispatcher que há mensangens na fila
-                        if(fila_mensagens->node_number == 1){
-                            
-                            pthread_cond_signal(&new_task_cond);
-                        }
+                        
+                        //Avisa o monitor para verificar o load da fila
+                        //Avisar o dispatcher que há mensangens na fila 
+                        pthread_cond_broadcast(&SMV->new_task_cond);
+    
+
                     }
                     
-                    pthread_mutex_unlock(&rd_wr_list);
+                    pthread_mutex_unlock(&SMV->sem_tm_queue);
+                
                 }
                 else{
                     printf("recebeu 0\n");
@@ -205,6 +205,7 @@ void *scheduler()
             }
 
         }
+
 
         
     }
@@ -227,13 +228,13 @@ void *dispatcher()
     {   
 
         //printf("LOCKED DISPATCHER\n");
-        pthread_mutex_lock(&rd_wr_list);
+        pthread_mutex_lock(&SMV->sem_tm_queue);
         //printf("UNLOCKED DISPATCHER %d\n",fila_mensagens->node_number);
 
-        if (fila_mensagens->node_number == 0)
+        if (SMV->node_number == 0)
         { 
             // Se a fila está vazia, a thread espera por um sinal do scheduler a avisar que há uma nova tarefa na fila
-            pthread_cond_wait(&new_task_cond, &rd_wr_list);
+            pthread_cond_wait(&SMV->new_task_cond, &SMV->sem_tm_queue);
         }
 
 
@@ -255,14 +256,15 @@ void *dispatcher()
 
             //Nenhum edge server disponivel, esperar por o sinal de algum deles e verificar novamente
             printf("DEBUG DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS\n");
-            pthread_cond_wait(&SMV->edge_server_sig,&rd_wr_list);
+            pthread_cond_wait(&SMV->edge_server_sig,&SMV->sem_tm_queue);
 
             printf("DEBUG DISPATCHER: 1 CPU BECAME AVAILABLE\n");
             try_to_send(next_task);
 
         }
 
-        pthread_mutex_unlock(&rd_wr_list);
+        pthread_mutex_unlock(&SMV->sem_tm_queue);
+
     
     }
 
@@ -397,11 +399,6 @@ void end_sig_tm()
     }
 
 
-
-    // IPCS
-    pthread_mutex_destroy(&rd_wr_list);
-    pthread_cond_destroy(&new_task_cond);
-
     // TODO
     // CLOSE UNNAMED PIPES
 
@@ -445,7 +442,7 @@ void insert_list(linked_list **lista, int priority, int num_instructions, int ti
         aux_node->next_node = new_node;
     }
 
-    (*lista)->node_number++;
+    SMV->node_number++;
 }
 
 int remove_from_list(linked_list **lista, int id_node)
@@ -459,7 +456,7 @@ int remove_from_list(linked_list **lista, int id_node)
 
         (*lista)->first_node = aux_node->next_node;
         free(aux_node);
-        (*lista)->node_number--;
+        SMV->node_number--;
         return 0;
     }
     else
@@ -481,7 +478,7 @@ int remove_from_list(linked_list **lista, int id_node)
             Node *to_delete = aux_node->next_node;
             aux_node->next_node = aux_node->next_node->next_node;
             free(to_delete);
-            (*lista)->node_number--;
+            SMV->node_number--;
 
             return 0;
         }

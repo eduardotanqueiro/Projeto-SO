@@ -57,7 +57,7 @@ typedef struct
     pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager processes
 
 
-    //General Semaphores
+    //Semaphores
     sem_t *log_write_mutex;
     sem_t *shm_write;
     sem_t *shm_edge_servers;
@@ -65,6 +65,13 @@ typedef struct
 
     pthread_condattr_t attr_cond;
     pthread_cond_t edge_server_sig;
+
+
+    //Task Manager Queue
+    int node_number;
+    pthread_mutexattr_t attr_mutex;
+    pthread_mutex_t sem_tm_queue;
+    pthread_cond_t new_task_cond;
 
 
     //General Edge Servers Performance Mode
