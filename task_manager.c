@@ -145,7 +145,7 @@ void *scheduler()
 
                 if(number_read > 0){
 
-                    printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
+                    //printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
 
                     //TODO Check if it's a QUIT or STATS command before continuing
 
@@ -218,7 +218,6 @@ void *dispatcher()
 
     #ifdef DEBUG
     printf("DISPATCHER\n");
-    //pause();
     #endif
 
     Node *next_task = (Node*)malloc(sizeof(Node));
@@ -257,6 +256,8 @@ void *dispatcher()
             //Nenhum edge server disponivel, esperar por o sinal de algum deles e verificar novamente
             printf("DEBUG DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS\n");
             pthread_cond_wait(&SMV->edge_server_sig,&SMV->sem_tm_queue);
+
+            //TODO ERRO AQUI
 
             printf("DEBUG DISPATCHER: 1 CPU BECAME AVAILABLE\n");
             try_to_send(next_task);
@@ -336,7 +337,7 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
     int tempo_decorrido = (abs(check_time.tm_min - next_task->arrive_time.tm_min)%60 )*60 + abs(check_time.tm_sec - next_task->arrive_time.tm_sec)%60;
     int tempo_restante = next_task->timeout - tempo_decorrido;
 
-    sem_wait(SMV->shm_edge_servers);
+    pthread_mutex_lock(&SMV->shm_edge_servers);
 
     for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
 
@@ -366,7 +367,7 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
 
     }
 
-    sem_post(SMV->shm_edge_servers);
+    pthread_mutex_unlock(SMV->shm_edge_servers);
 
 
 }

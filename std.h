@@ -20,6 +20,8 @@
 
 #include <signal.h>
 
+#include <sys/msg.h>
+
 
 
 
@@ -43,6 +45,13 @@ typedef struct
     int NUMBER_MAINTENENCE_TASKS;
 } Edge_Server;
 
+typedef struct
+{
+    long msgtype;
+    int msg_flag; //0-Stop Edge Server 1-Edge Server Ready 2-Continue Working
+
+} msg;
+
 
 typedef struct
 {   
@@ -60,7 +69,7 @@ typedef struct
     //Semaphores
     sem_t *log_write_mutex;
     sem_t *shm_write;
-    sem_t *shm_edge_servers;
+    pthread_mutex_t shm_edge_servers; //mudar para pthread_mutex
     sem_t *check_performance_mode;
 
     pthread_condattr_t attr_cond;
@@ -73,6 +82,8 @@ typedef struct
     pthread_mutex_t sem_tm_queue;
     pthread_cond_t new_task_cond;
 
+    //Maintenance Manager Message Queue
+    int msqid;
 
     //General Edge Servers Performance Mode
     int ALL_PERFORMANCE_MODE;

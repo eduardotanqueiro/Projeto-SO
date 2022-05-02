@@ -65,8 +65,8 @@ int init(char* file_name)
     SMV->log_write_mutex = sem_open("LOG_WRITE_MUTEX", O_CREAT | O_EXCL,0700,1);
     sem_unlink("SHM_WRITE");
     SMV->shm_write = sem_open("SHM_WRITE", O_CREAT | O_EXCL ,0700,1);
-    sem_unlink("SHM_ES");
-    SMV->shm_edge_servers = sem_open("SHM_ES", O_CREAT | O_EXCL ,0700,1);
+    //sem_unlink("SHM_ES");
+    //SMV->shm_edge_servers = sem_open("SHM_ES", O_CREAT | O_EXCL ,0700,1);
     sem_unlink("SHM_CHECK_PFM");
     SMV->check_performance_mode = sem_open("SHM_CHECK_PFM", O_CREAT | O_EXCL ,0700,1);
     sem_unlink("CHECK_END");
@@ -84,6 +84,7 @@ int init(char* file_name)
     pthread_mutexattr_init(&SMV->attr_mutex);
     pthread_mutexattr_setpshared(&SMV->attr_mutex,PTHREAD_PROCESS_SHARED);
 
+    pthread_mutex_init(&SMV->shm_edge_servers,&SMV->attr_mutex);
     pthread_mutex_init(&SMV->sem_tm_queue,&SMV->attr_mutex);
 
 
@@ -141,6 +142,12 @@ int init(char* file_name)
 		exit(1);
 	}
     write_screen_log("Task piped created");
+
+    //Create Message Queue
+    if( (SMV->msqid = msgget( ftok("./TASK_PIPE",1) , IPC_CREAT|0700) ) == -1){
+        write_screen_log("CANNOT CREATE MAINTENANCE MANAGER MESSAGE QUEUE");
+        exit(1);
+    }    
 
 
     //Create processes

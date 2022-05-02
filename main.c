@@ -59,15 +59,18 @@ void cleanup(){
     printf("aqui2\n");
     #endif
 
+    //Maintenance Manager Message Queue
+    msgctl(SMV->msqid, IPC_RMID, NULL);
+
     //Semaphores
     sem_unlink("LOG_WRITE_MUTEX");
     sem_unlink("SHM_WRITE");
-    sem_unlink("SHM_ES");
+    //sem_unlink("SHM_ES");
     sem_unlink("SHM_CHECK_PFM");
     sem_unlink("CHECK_END");
     sem_close(SMV->shm_write);
     sem_close(SMV->log_write_mutex);
-    sem_close(SMV->shm_edge_servers);
+    //sem_close(SMV->shm_edge_servers);
     sem_close(SMV->check_performance_mode);
     sem_close(SMV->check_end);
 
@@ -77,7 +80,7 @@ void cleanup(){
     pthread_cond_destroy(&SMV->new_task_cond);
     pthread_condattr_destroy(&SMV->attr_cond);
 
-
+    pthread_mutex_destroy(&SMV->shm_edge_servers);
     pthread_mutex_destroy(&SMV->sem_tm_queue);
     pthread_mutexattr_destroy(&SMV->attr_mutex);
     
@@ -145,7 +148,7 @@ void sigtstp(){
     char buffer[BUFSIZ];
     int total_tasks = 0;
 
-    sem_wait(SMV->shm_edge_servers);
+    pthread_mutex_lock(SMV->shm_edge_servers);
 
     for(int i = 0;i<SMV->EDGE_SERVER_NUMBER;i++){
 
@@ -161,7 +164,7 @@ void sigtstp(){
 
     }
 
-    sem_post(SMV->shm_edge_servers);
+    pthread_mutex_unlock(SMV->shm_edge_servers);
 
     sem_wait(SMV->shm_write);
 
