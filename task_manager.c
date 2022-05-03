@@ -9,7 +9,6 @@ int TaskManager()
     printf("Task Manager!!\n");
     #endif
 
-    // signal(SIGINT,SIG_BLOCK); //não é preciso se for feito no main?/trocar para sigaction?
     
     // Open unnamed pipes
     for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){
@@ -367,7 +366,7 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
 
     }
 
-    pthread_mutex_unlock(SMV->shm_edge_servers);
+    pthread_mutex_unlock(&SMV->shm_edge_servers);
 
 
 }

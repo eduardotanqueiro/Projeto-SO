@@ -48,7 +48,7 @@ typedef struct
 typedef struct
 {
     long msgtype;
-    int msg_flag; //0-Stop Edge Server 1-Edge Server Ready 2-Continue Working
+    int msg_content;
 
 } msg;
 

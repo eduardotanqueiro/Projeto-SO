@@ -148,7 +148,7 @@ void sigtstp(){
     char buffer[BUFSIZ];
     int total_tasks = 0;
 
-    pthread_mutex_lock(SMV->shm_edge_servers);
+    pthread_mutex_lock(&SMV->shm_edge_servers);
 
     for(int i = 0;i<SMV->EDGE_SERVER_NUMBER;i++){
 
@@ -164,7 +164,7 @@ void sigtstp(){
 
     }
 
-    pthread_mutex_unlock(SMV->shm_edge_servers);
+    pthread_mutex_unlock(&SMV->shm_edge_servers);
 
     sem_wait(SMV->shm_write);
 
