@@ -8,7 +8,19 @@ int Monitor()
     signal(SIGINT,SIG_DFL);
 
     #ifdef DEBUG
-    //printf("Monitor!!\nTESTING PERFORMANCE MODE 2\n");
+    printf("Monitor!!\nTESTING PERFORMANCE MODE 2\n");
+
+    sem_wait(SMV->check_performance_mode);
+    SMV->ALL_PERFORMANCE_MODE = 2;
+
+    pthread_mutex_lock(&SMV->shm_edge_servers);
+    for(int i = 0;i< SMV->EDGE_SERVER_NUMBER; i++){
+        edge_server_list[i].AVAILABLE_CPUS[1] = 1;
+    }
+    pthread_mutex_unlock(&SMV->shm_edge_servers);
+
+    sem_post(SMV->check_performance_mode);
+
     #endif
 
     /*
@@ -27,11 +39,11 @@ int Monitor()
             sem_wait(SMV->check_performance_mode);
             SMV->ALL_PERFORMANCE_MODE = 2;
 
-            pthread_mutex_lock(SMV->shm_edge_servers);
+            pthread_mutex_lock(&SMV->shm_edge_servers);
             for(int i = 0;i< SMV->EDGE_SERVER_NUMBER; i++){
                 edge_server_list[i].AVAILABLE_CPUS[1] = 1;
             }
-            pthread_mutex_unlock(SMV->shm_edge_servers);
+            pthread_mutex_unlock(&SMV->shm_edge_servers);
 
 
 
@@ -48,11 +60,11 @@ int Monitor()
 
             SMV->ALL_PERFORMANCE_MODE = 1;
 
-            pthread_mutex_lock(SMV->shm_edge_servers);
+            pthread_mutex_lock(&SMV->shm_edge_servers);
             for(int i = 0;i< SMV->EDGE_SERVER_NUMBER; i++){
                 edge_server_list[i].AVAILABLE_CPUS[1] = 0;
             }
-            pthread_mutex_unlock(SMV->shm_edge_servers);
+            pthread_mutex_unlock(&SMV->shm_edge_servers);
         }
 
         sem_post(SMV->check_performance_mode);

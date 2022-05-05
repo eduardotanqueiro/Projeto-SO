@@ -27,9 +27,14 @@ int MaintenanceManager()
 
     write_screen_log("MAINTENANCE MANAGER: ALL EDGE SERVERS READY TO WORK");
 
+    //debug
+    sleep(300);
 
     //work
     while(1){
+
+        //Sleep
+        sleep( 10 + rand()%5);
 
         edgeserver_to_maintenance = rand()% SMV->EDGE_SERVER_NUMBER;
 
@@ -53,8 +58,7 @@ int MaintenanceManager()
         work_msg.msgtype = list_pids[edgeserver_to_maintenance];
         msgsnd(SMV->msqid,&work_msg,sizeof(work_msg) - sizeof(long),0);
 
-        //Sleep
-        sleep( 10 + rand()%5);
+
     }
     
     free(list_pids);

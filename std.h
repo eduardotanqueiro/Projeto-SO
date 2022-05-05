@@ -23,8 +23,6 @@
 #include <sys/msg.h>
 
 
-
-
 #define DEBUG //remove this line to remove debug messages
 #define PIPE_NAME "TASK_PIPE"
 
@@ -51,7 +49,6 @@ typedef struct
     int msg_content;
 
 } msg;
-
 
 typedef struct
 {   
@@ -93,8 +90,6 @@ typedef struct
 
     //Variables used when system is exiting
     pthread_cond_t end_system_sig;
-    sem_t *check_end;
-    int end_system;
 
 
 

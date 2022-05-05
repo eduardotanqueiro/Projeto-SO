@@ -46,8 +46,11 @@ int TaskManager();
 void end_sig_tm();
 void* scheduler();
 void* dispatcher();
+void* MonitorEndTM();
 
 //
 void check_cpus(Node *next_task, int **flag, int **pipe_to_send);
 int try_to_send(Node *next_task);
 int time_since_arrive(Node *task);
+
+void debug_print_free_es();

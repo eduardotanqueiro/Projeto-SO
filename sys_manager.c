@@ -18,6 +18,8 @@ int init(char* file_name)
         exit(1);
     }
 
+    //Open Log File
+    //flog = fopen("log.txt","a");
 
     //TODO PROTEGER CONTRA MAU INPUT DO CONFIG FILE
     //Check file with regex functions
@@ -65,12 +67,8 @@ int init(char* file_name)
     SMV->log_write_mutex = sem_open("LOG_WRITE_MUTEX", O_CREAT | O_EXCL,0700,1);
     sem_unlink("SHM_WRITE");
     SMV->shm_write = sem_open("SHM_WRITE", O_CREAT | O_EXCL ,0700,1);
-    //sem_unlink("SHM_ES");
-    //SMV->shm_edge_servers = sem_open("SHM_ES", O_CREAT | O_EXCL ,0700,1);
     sem_unlink("SHM_CHECK_PFM");
     SMV->check_performance_mode = sem_open("SHM_CHECK_PFM", O_CREAT | O_EXCL ,0700,1);
-    sem_unlink("CHECK_END");
-    SMV->check_end = sem_open("CHECK_END",O_CREAT | O_EXCL ,0700,1);
 
 
     pthread_condattr_init(&SMV->attr_cond);

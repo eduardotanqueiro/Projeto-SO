@@ -17,7 +17,7 @@ int main(int argc, char** argv){
     else
     {
         fprintf(stderr,"Wrong command format\n");
-        return -1;
+        return 1;
     }
 
     //Redirect CTRL+C and CTRL+Z
@@ -39,15 +39,11 @@ void cleanup(){
     printf("aqui1\n");
     #endif
 
-    //FLAG NA SHMM PARA TERMINAR EDGE SERVERS
-    //sem_wait(SMV->check_end);
-    //SMV->end_system = 1;
+    //SINAL PARA AVISAR OS PROCESSOS QUE É PARA TERMINAR
     pthread_cond_broadcast(&SMV->end_system_sig);
-    //sem_post(SMV->check_end);
-    
 
     // ESPERA AQUI, SÓ PODE FECHAR A SHM QUANDO TODOS OS OUTROS PROCESSOS FECHAREM
-    //  WAIT FOR CHILDS
+    // WAIT FOR CHILDS
     for(int i = 0;i<3;i++){
         wait(NULL);
     }
@@ -63,16 +59,10 @@ void cleanup(){
     msgctl(SMV->msqid, IPC_RMID, NULL);
 
     //Semaphores
-    sem_unlink("LOG_WRITE_MUTEX");
     sem_unlink("SHM_WRITE");
-    //sem_unlink("SHM_ES");
     sem_unlink("SHM_CHECK_PFM");
-    sem_unlink("CHECK_END");
     sem_close(SMV->shm_write);
-    sem_close(SMV->log_write_mutex);
-    //sem_close(SMV->shm_edge_servers);
     sem_close(SMV->check_performance_mode);
-    sem_close(SMV->check_end);
 
 
     pthread_cond_destroy(&SMV->edge_server_sig);
@@ -83,25 +73,7 @@ void cleanup(){
     pthread_mutex_destroy(&SMV->shm_edge_servers);
     pthread_mutex_destroy(&SMV->sem_tm_queue);
     pthread_mutexattr_destroy(&SMV->attr_mutex);
-    
-    #ifdef DEBUG
-    printf("aqui3\n");
-    #endif
 
-    //Pipe
-    unlink(PIPE_NAME);
-    close(fd_named_pipe);
-
-
-    //Shared Memory
-    shmdt(SMV);
-    shmctl(shm_id, IPC_RMID, NULL);
-
-    #ifdef DEBUG
-    printf("aqui4\n");
-    #endif
-
-    exit(0);
 }
 
 //
@@ -109,13 +81,13 @@ void cleanup(){
 //
 void write_screen_log(char* str){
 
-    FILE* flog = fopen("log.txt","a"); //trocar
+    FILE* flog = fopen("log.txt","a");
+
+
     time_t now;
     struct tm timenow;
 
-    //pthread_mutex_lock(&SMV->log_write_mutex);
     sem_wait(SMV->log_write_mutex);
-
 
     time(&now);
     localtime_r(&now,&timenow);
@@ -123,7 +95,7 @@ void write_screen_log(char* str){
     printf("%02d:%02d:%02d %s\n",timenow.tm_hour,timenow.tm_min,timenow.tm_sec,str);
 
     sem_post(SMV->log_write_mutex);
-    //pthread_mutex_unlock(&SMV->log_write_mutex);
+
 
     fclose(flog);
 
@@ -134,9 +106,20 @@ void write_screen_log(char* str){
 //
 void sigint(){
 
-    write_screen_log("Cleaning up resources");
+    write_screen_log("CLEANING UP RESOURCES");
     cleanup();
-    write_screen_log("Cleanup complete! Closing system");
+    write_screen_log("CLEANUP COMPLETE! CLOSING SYSTEM");
+
+    //Close log sem
+    sem_unlink("LOG_WRITE_MUTEX");
+    sem_close(SMV->log_write_mutex);
+
+    //Shared Memory
+    shmdt(SMV);
+    shmctl(shm_id, IPC_RMID, NULL);
+
+    //Close after, to keep the log file updated
+
     exit(0);
 
 }
@@ -167,9 +150,12 @@ void sigtstp(){
     pthread_mutex_unlock(&SMV->shm_edge_servers);
 
     sem_wait(SMV->shm_write);
-
+    
     memset(buffer,0,BUFSIZ);
-    snprintf(buffer,BUFSIZ,"Mean of response time between tasks: %d", (int)SMV->total_response_time/total_tasks );
+    if(total_tasks != 0)
+        snprintf(buffer,BUFSIZ,"Mean of response time between tasks: %d", (int)SMV->total_response_time/total_tasks );
+    else
+        snprintf(buffer,BUFSIZ,"Mean of response time between tasks: 0");
     write_screen_log(buffer);
 
     memset(buffer,0,BUFSIZ);

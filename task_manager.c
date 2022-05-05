@@ -21,10 +21,8 @@ int TaskManager()
     // Start Edge Servers
     for (int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++)
     {
-
         if ((edge_servers_processes[i] = fork()) == 0)
         {
-
             EdgeServer(i);
             exit(0);
         }
@@ -48,8 +46,11 @@ int TaskManager()
     fila_mensagens->first_node = NULL;
 
     // Handle End Signal
-    signal(SIGINT, end_sig_tm);
+    //signal(SIGINT, end_sig_tm);
 
+    //Monitor
+    pthread_t monitor;
+    pthread_create(&monitor,NULL,MonitorEndTM,0);
 
     // Dispatcher Thread
     pthread_create(&tm_threads[1], NULL, dispatcher, 0);
@@ -58,9 +59,11 @@ int TaskManager()
     pthread_create(&tm_threads[0], NULL, scheduler, 0);
 
     //condicao variavel à espera que o system acabe
-    #ifdef DEBUG
-    pause();
-    #endif
+    pthread_join(monitor,NULL);
+
+    // #ifdef DEBUG
+    // pause();
+    // #endif
 
     return 0;
 }
@@ -241,30 +244,31 @@ void *dispatcher()
         get_next_task(&fila_mensagens, &next_task);
         //printf("DISPATCHER DEBUG AFTER TASK\n");
         
+        pthread_mutex_unlock(&SMV->sem_tm_queue);
+
 
         #ifdef DEBUG
         //printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
         #endif
 
 
-
  
         //try to send the task to some edge server. if there are none CPUs available, waits for a signal saying that some CPU just ended a task
-        if( try_to_send(next_task) == 1){
+        pthread_mutex_lock(&SMV->shm_edge_servers);
+        //debug_print_free_es();
+        while( try_to_send(next_task) == 1){
 
             //Nenhum edge server disponivel, esperar por o sinal de algum deles e verificar novamente
-            printf("DEBUG DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS\n");
-            pthread_cond_wait(&SMV->edge_server_sig,&SMV->sem_tm_queue);
+            write_screen_log("DEBUG DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS");
+            pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
 
             //TODO ERRO AQUI
-
             printf("DEBUG DISPATCHER: 1 CPU BECAME AVAILABLE\n");
-            try_to_send(next_task);
+            //debug_print_free_es();
 
         }
-
-        pthread_mutex_unlock(&SMV->sem_tm_queue);
-
+        pthread_mutex_unlock(&SMV->shm_edge_servers);
+        usleep(2000);
     
     }
 
@@ -303,8 +307,13 @@ int try_to_send(Node *next_task){
         return 0;
 
     }else if( flag == 1){
-        //send to the correct pipe
-        snprintf(task_str,sizeof(task_str),"TASK %d SELECTED FOR EXECUTION ON %s",next_task->id_node,edge_server_list[ pipe_to_send ].SERVER_NAME);
+
+        //send to server
+        snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
+        write(edge_server_list[ pipe_to_send ].pipe[1],&task_str,sizeof(task_str));
+
+        //LOG
+        snprintf(task_str,sizeof(task_str),"TASK %d SELECTED %d FOR EXECUTION ON %s",next_task->id_node,next_task->priority,edge_server_list[ pipe_to_send ].SERVER_NAME);
         write_screen_log(task_str);
         memset(task_str,0,sizeof(task_str));
 
@@ -313,9 +322,24 @@ int try_to_send(Node *next_task){
         SMV->total_response_time += time_since_arrive(next_task);
         sem_post(SMV->shm_write);
 
-        //send to server
-        snprintf(task_str,512,"%d;%d",next_task->id_node,next_task->num_instructions);
-        write(edge_server_list[ pipe_to_send ].pipe[1],&task_str,sizeof(task_str));
+        // DEBUG
+        // sem_wait(SMV->check_performance_mode);
+        // if(SMV->ALL_PERFORMANCE_MODE == 1){
+        //     sem_post(SMV->check_performance_mode);
+        //     edge_server_list[ pipe_to_send ].AVAILABLE_CPUS[0] = 0;
+        // }
+        // sem_post(SMV->check_performance_mode);
+        // else if(SMV->ALL_PERFORMANCE_MODE == 2){
+        //     sem_post(SMV->check_performance_mode);
+
+        //     if(edge_server_list[ pipe_to_send ].AVAILABLE_CPUS[1] == 1)
+        //         edge_server_list[ pipe_to_send ].AVAILABLE_CPUS[1] = 0;
+        //     else if (edge_server_list[ pipe_to_send ].AVAILABLE_CPUS[0] == 1)
+        //         edge_server_list[ pipe_to_send ].AVAILABLE_CPUS[0] = 0;
+
+        // }
+        // END DEBUG
+        
         return 0;
 
     }else
@@ -336,7 +360,7 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
     int tempo_decorrido = (abs(check_time.tm_min - next_task->arrive_time.tm_min)%60 )*60 + abs(check_time.tm_sec - next_task->arrive_time.tm_sec)%60;
     int tempo_restante = next_task->timeout - tempo_decorrido;
 
-    pthread_mutex_lock(&SMV->shm_edge_servers);
+    //pthread_mutex_lock(&SMV->shm_edge_servers);
 
     for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
 
@@ -366,7 +390,7 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
 
     }
 
-    pthread_mutex_unlock(&SMV->shm_edge_servers);
+    //pthread_mutex_unlock(&SMV->shm_edge_servers);
 
 
 }
@@ -374,24 +398,36 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
 
 void end_sig_tm()
 {
+    char buffer[512];
+    Node* aux = fila_mensagens->first_node;
 
-    write_screen_log("Cleaning up Task Manager");
+    write_screen_log("CLEANING UP TASK MANAGER");
 
     // CLOSE THREADS
+    pthread_mutex_lock(&SMV->shm_edge_servers);
     pthread_cancel(tm_threads[0]);
     pthread_cancel(tm_threads[1]);
+    pthread_mutex_unlock(&SMV->shm_edge_servers);
+
 
     // TODO
     // ESCREVER NO LOG AS MENSAGENS QUE RESTA NA FILA DO SCHEDULER + NAMED PIPE
-    // CLOSE MESSAGE QUEUE
-    // CLEAN MESSAGEM QUEUE MEMORY!!!
+    for(int i=0; i< SMV->node_number;i++){
+        snprintf(buffer,sizeof(buffer),"TASK %d LEFT UNDONE",aux->id_node);
+        write_screen_log(buffer);
+        aux = aux->next_node;
+    }
+
+    printf("AQUI TM\n");
+
+    // CLEAN MESSAGEM QUEUE
+    free(fila_mensagens);
 
     // CLOSE NAMED PIPE
     unlink(PIPE_NAME);
     close(fd_named_pipe);
 
-    //
-
+    printf("TM WAITING ES\n");
     // Wait for Edge Server Processes
     for (int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++)
     {
@@ -401,10 +437,14 @@ void end_sig_tm()
 
     // TODO
     // CLOSE UNNAMED PIPES
+    for(int i = 0; i<SMV->EDGE_SERVER_NUMBER;i++){
+        close(edge_server_list[i].pipe[0]);
+        close(edge_server_list[i].pipe[1]);
+    }
 
     free(edge_servers_processes);
 
-    write_screen_log("Task Manager Cleanup Complete");
+    write_screen_log("TASK MANAGER CLEANUP COMPLETE");
     exit(0);
 }
 
@@ -584,4 +624,30 @@ int time_since_arrive(Node *task){
     elapsed_seconds = elapsed_minutes * 60 + abs(check_time.tm_sec - task->arrive_time.tm_sec)%60;
 
     return elapsed_seconds;
+}
+
+
+void debug_print_free_es(){
+
+    printf("\n");
+    for(int i = 0; i< SMV->EDGE_SERVER_NUMBER; i++){
+
+        printf("ES%d: %d %d, ",i,edge_server_list[i].AVAILABLE_CPUS[0],edge_server_list[i].AVAILABLE_CPUS[1]);
+
+    }
+    printf("\n");
+
+}
+
+void* MonitorEndTM(){
+
+
+    pthread_cond_wait(&SMV->end_system_sig,&SMV->sem_tm_queue);
+
+    end_sig_tm();
+
+    pthread_mutex_unlock(&SMV->sem_tm_queue);
+
+    pthread_exit(NULL);
+
 }
