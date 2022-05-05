@@ -9,15 +9,14 @@ int EdgeServer(int edge_server_number)
     char buf[100];
 
     #ifdef DEBUG
-    printf("ES_name: %s, CPU1_CAP: %d, CP2_CAP: %d\n", edge_server_list[edge_server_number].SERVER_NAME, edge_server_list[edge_server_number].CPU1_CAP, edge_server_list[edge_server_number].CPU2_CAP);
-    glob_edge_server_number = edge_server_number;
+    //printf("ES_name: %s, CPU1_CAP: %d, CP2_CAP: %d\n", edge_server_list[edge_server_number].SERVER_NAME, edge_server_list[edge_server_number].CPU1_CAP, edge_server_list[edge_server_number].CPU2_CAP);
     #endif
 
+    glob_edge_server_number = edge_server_number;
 
     //METER O CPU1 DISPONIVEL AO INICIO
     //NÃO ESTAO A SER USADOS MECANISMOS DE SINCRONIZAÇÃO AQUI PORQUE CADA EDGE SERVER VAI ALTERAR UMA ZONA DIFERENTE
     edge_server_list[ glob_edge_server_number].AVAILABLE_CPUS[0] = 1;
-
 
 
     //Avisar Maintenance que está a trabalhar
@@ -165,6 +164,7 @@ void* vCPU(void* arg){
     tok = strtok_r(NULL,";",&resto);
     num_instructions = atoi(tok);
 
+
     //do work
     if( t_args->cpu == 1){
         usleep( (int) (num_instructions / edge_server_list[glob_edge_server_number].CPU1_CAP  * 1000000) );
@@ -174,10 +174,11 @@ void* vCPU(void* arg){
     }
 
 
+
     //Set CPU as available and update executed tasks
     pthread_mutex_lock(&SMV->shm_edge_servers);
 
-    //TODO check performance mode
+    //check performance mode
     edge_server_list[ glob_edge_server_number ].AVAILABLE_CPUS[ t_args->cpu - 1] = 1;
     edge_server_list[ glob_edge_server_number ].NUMBER_EXECUTED_TASKS++;
 
@@ -207,8 +208,6 @@ void* MonitorEnd(){
 
 
     pthread_cond_wait(&SMV->end_system_sig,&m);
-
-    printf("EDGE SERVER %d RECEIVED END SIGNAL\n",glob_edge_server_number);
 
     //check performance mode and wait for threads if necessary
     sem_wait(SMV->check_performance_mode);
@@ -244,7 +243,7 @@ void* MonitorEnd(){
             
             //printf("%d %d %d\n",glob_edge_server_number,edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0],edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1]);
             pthread_cond_timedwait(&SMV->edge_server_sig,&SMV->shm_edge_servers,&ts);
-            printf("TIMER EXPIRED ON %d, CHECKING CPUS\n",glob_edge_server_number);
+            //printf("TIMER EXPIRED ON %d, CHECKING CPUS\n",glob_edge_server_number);
 
         }
 
@@ -272,7 +271,7 @@ void DoMaintenance(pid_t es_pid){
     //CHECK FOR MESSAGES FROM MAINTENANCE MANAGER
         if( msgrcv(SMV->msqid,&rcv_msg, sizeof(rcv_msg) - sizeof(long),es_pid, IPC_NOWAIT) != -1){
             //received a message
-            printf("received message on edge server %d, %ld %d\n",glob_edge_server_number,rcv_msg.msgtype,rcv_msg.msg_content);
+            //printf("received message on edge server %d, %ld %d\n",glob_edge_server_number,rcv_msg.msgtype,rcv_msg.msg_content);
 
             //check performance mode and wait for threads
             sem_wait(SMV->check_performance_mode);

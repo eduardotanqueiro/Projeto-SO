@@ -48,7 +48,7 @@ int init(char* file_name)
 
 
     //Create the shared memory
-    shm_id = shmget(IPC_PRIVATE, sizeof(Shared_Memory_Variables) + sizeof(Edge_Server)*edge_server_number_temp + sizeof(int[2]) * edge_server_number_temp , IPC_CREAT | 0700);
+    shm_id = shmget(IPC_PRIVATE, sizeof(Shared_Memory_Variables) + sizeof(Edge_Server)*edge_server_number_temp, IPC_CREAT | 0700);
     if (shm_id < 1){
 		write_screen_log("Error creating shm memory!");
 		exit(1);

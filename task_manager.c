@@ -68,6 +68,8 @@ int TaskManager()
     return 0;
 }
 
+
+
 void *scheduler()
 {
 
@@ -212,6 +214,7 @@ void *scheduler()
         
     }
 
+    
     pthread_exit(NULL);
 }
 
@@ -221,6 +224,8 @@ void *dispatcher()
     #ifdef DEBUG
     printf("DISPATCHER\n");
     #endif
+
+    pthread_cleanup_push(thread_cleanup_handler, NULL);
 
     Node *next_task = (Node*)malloc(sizeof(Node));
 
@@ -251,22 +256,18 @@ void *dispatcher()
         //printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
         #endif
 
-
  
         //try to send the task to some edge server. if there are none CPUs available, waits for a signal saying that some CPU just ended a task
         pthread_mutex_lock(&SMV->shm_edge_servers);
-        //debug_print_free_es();
         while( try_to_send(next_task) == 1){
 
             //Nenhum edge server disponivel, esperar por o sinal de algum deles e verificar novamente
-            write_screen_log("DEBUG DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS");
+            write_screen_log("DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS");
             pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
 
-            //TODO ERRO AQUI
-            printf("DEBUG DISPATCHER: 1 CPU BECAME AVAILABLE\n");
-            //debug_print_free_es();
-
+            write_screen_log("DISPATCHER: 1 CPU BECAME AVAILABLE\n");
         }
+
         pthread_mutex_unlock(&SMV->shm_edge_servers);
         usleep(2000);
     
@@ -275,6 +276,7 @@ void *dispatcher()
 
 
     free(next_task);
+    pthread_cleanup_pop(0);
     pthread_exit(NULL);
 }
 
@@ -404,10 +406,10 @@ void end_sig_tm()
     write_screen_log("CLEANING UP TASK MANAGER");
 
     // CLOSE THREADS
-    pthread_mutex_lock(&SMV->shm_edge_servers);
+    //pthread_mutex_lock(&SMV->shm_edge_servers);
     pthread_cancel(tm_threads[0]);
     pthread_cancel(tm_threads[1]);
-    pthread_mutex_unlock(&SMV->shm_edge_servers);
+    //pthread_mutex_unlock(&SMV->shm_edge_servers);
 
 
     // TODO
@@ -418,8 +420,6 @@ void end_sig_tm()
         aux = aux->next_node;
     }
 
-    printf("AQUI TM\n");
-
     // CLEAN MESSAGEM QUEUE
     free(fila_mensagens);
 
@@ -427,7 +427,6 @@ void end_sig_tm()
     unlink(PIPE_NAME);
     close(fd_named_pipe);
 
-    printf("TM WAITING ES\n");
     // Wait for Edge Server Processes
     for (int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++)
     {
@@ -435,7 +434,6 @@ void end_sig_tm()
     }
 
 
-    // TODO
     // CLOSE UNNAMED PIPES
     for(int i = 0; i<SMV->EDGE_SERVER_NUMBER;i++){
         close(edge_server_list[i].pipe[0]);
@@ -649,5 +647,11 @@ void* MonitorEndTM(){
     pthread_mutex_unlock(&SMV->sem_tm_queue);
 
     pthread_exit(NULL);
+
+}
+
+void thread_cleanup_handler(void* arg){
+
+    pthread_mutex_unlock(&SMV->shm_edge_servers);
 
 }
