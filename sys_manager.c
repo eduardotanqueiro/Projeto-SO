@@ -75,6 +75,8 @@ int init(char* file_name)
 
     pthread_cond_init(&SMV->new_task_cond,&SMV->attr_cond);
 
+    pthread_cond_init(&SMV->edge_server_move,&SMV->attr_cond);
+
     pthread_mutexattr_init(&SMV->attr_mutex);
     pthread_mutexattr_setpshared(&SMV->attr_mutex,PTHREAD_PROCESS_SHARED);
 

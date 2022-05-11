@@ -75,6 +75,7 @@ void cleanup(){
     pthread_cond_destroy(&SMV->edge_server_sig);
     pthread_cond_destroy(&SMV->end_system_sig);
     //pthread_cond_destroy(&SMV->new_task_cond);
+    pthread_cond_destroy(&SMV->edge_server_move);
     pthread_condattr_destroy(&SMV->attr_cond);
 
     #ifdef DEBUG

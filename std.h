@@ -37,7 +37,6 @@ typedef struct
     int pipe[2];
 
     //Need semaphore for acess, because are changed by more than 1 process/thread
-    int PERFORMANCE_MODE;
     int IN_MAINTENANCE;
     int AVAILABLE_CPUS[2];
     int NUMBER_EXECUTED_TASKS;
@@ -58,10 +57,12 @@ typedef struct
     int MAX_WAIT;
     int EDGE_SERVER_NUMBER;
 
+    //stats
     int NUMBER_NON_EXECUTED_TASKS;
+    int total_response_time;
 
     //Processes variables
-    pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager processes
+    pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager processes //TODO TIRAR??
 
 
     //Semaphores
@@ -80,14 +81,16 @@ typedef struct
     pthread_mutex_t sem_tm_queue;
     pthread_cond_t new_task_cond;
 
+    //Maintenance and Dispatcher
+    pthread_cond_t edge_server_move;
+
     //Maintenance Manager Message Queue
     int msqid;
 
     //General Edge Servers Performance Mode
     int ALL_PERFORMANCE_MODE;
 
-    //
-    int total_response_time;
+
 
     //Variables used when system is exiting
     pthread_cond_t end_system_sig;
