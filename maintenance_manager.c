@@ -9,6 +9,8 @@ int MaintenanceManager()
     #ifdef DEBUG
     //printf("Maintenance Manager!!!\n");
     #endif
+    signal(SIGINT,sigint_maintenance);
+
 
     list_pids = malloc(sizeof(pid_t)*SMV->EDGE_SERVER_NUMBER);
     int edgeserver_to_maintenance; 
@@ -31,7 +33,6 @@ int MaintenanceManager()
         //Sleep
         sleep( 1 + rand()%5);
 
-        signal(SIGINT,sigint_maintenance);
 
         edgeserver_to_maintenance = rand()% SMV->EDGE_SERVER_NUMBER;
 
@@ -39,7 +40,6 @@ int MaintenanceManager()
         work_msg.msgtype = list_pids[edgeserver_to_maintenance];
         work_msg.msg_content = 0;
 
-        signal(SIGINT,SIG_BLOCK);
 
         //write na MQ
         snprintf(buf,sizeof(buf),"SENDING EDGE SERVER %d TO MAINTENANCE",edgeserver_to_maintenance);

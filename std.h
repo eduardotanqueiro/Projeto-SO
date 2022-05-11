@@ -91,7 +91,6 @@ typedef struct
     int ALL_PERFORMANCE_MODE;
 
 
-
     //Variables used when system is exiting
     pthread_cond_t end_system_sig;
 

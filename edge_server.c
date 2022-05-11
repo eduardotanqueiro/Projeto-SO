@@ -234,67 +234,63 @@ void* MonitorEnd(){
 
     //Wait for System Manager Signal saying that we should end servers
     //resolver isto dos mutexes
-    pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER; 
     struct timespec   ts; //documentação pthread_cond_timedwait() da IBM
-
-    pthread_mutex_lock(&m);
 
 
     pthread_cond_wait(&SMV->end_system_sig,&SMV->shm_edge_servers);
 
     //check performance mode and wait for threads if necessary
-    //TODO CHECK MAINTENANCE
-    while( edge_server_list[glob_edge_server_number].IN_MAINTENANCE == 1){
-        pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
+    // //TODO CHECK MAINTENANCE
+    // while( edge_server_list[glob_edge_server_number].IN_MAINTENANCE == 1){
+    //     pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
+    // }
+
+    // pthread_mutex_unlock(&SMV->shm_edge_servers);
+
+    if( edge_server_list[glob_edge_server_number].IN_MAINTENANCE == 0){
+
+        sem_wait(SMV->check_performance_mode);
+
+        if(SMV->ALL_PERFORMANCE_MODE == 1){
+
+            sem_post(SMV->check_performance_mode);
+
+            //pthread_mutex_lock(&SMV->shm_edge_servers);
+            //Wait for CPU1 to end the work
+            while( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0){
+
+                clock_gettime(CLOCK_REALTIME, &ts);
+                ts.tv_sec += 3;
+
+                //printf("%d %d %d\n",glob_edge_server_number,edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0],edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1]);
+                pthread_cond_timedwait(&SMV->edge_server_sig,&SMV->shm_edge_servers,&ts);
+
+            }
+
+
+
+        }else if (SMV->ALL_PERFORMANCE_MODE == 2){
+
+            sem_post(SMV->check_performance_mode);
+
+            //pthread_mutex_lock(&SMV->shm_edge_servers);
+            //Wait for CPUs to end the work
+            while( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0 || edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] == 0){
+                
+                clock_gettime(CLOCK_REALTIME, &ts);
+                ts.tv_sec += 3;
+                
+                //printf("%d %d %d\n",glob_edge_server_number,edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0],edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1]);
+                pthread_cond_timedwait(&SMV->edge_server_sig,&SMV->shm_edge_servers,&ts);
+                //printf("TIMER EXPIRED ON %d, CHECKING CPUS\n",glob_edge_server_number);
+
+            }
+
+
+        }
     }
 
     pthread_mutex_unlock(&SMV->shm_edge_servers);
-
-
-    sem_wait(SMV->check_performance_mode);
-
-    if(SMV->ALL_PERFORMANCE_MODE == 1){
-
-        sem_post(SMV->check_performance_mode);
-
-        pthread_mutex_lock(&SMV->shm_edge_servers);
-        //Wait for CPU1 to end the work
-        while( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0){
-
-            clock_gettime(CLOCK_REALTIME, &ts);
-            ts.tv_sec += 3;
-
-            //printf("%d %d %d\n",glob_edge_server_number,edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0],edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1]);
-            pthread_cond_timedwait(&SMV->edge_server_sig,&SMV->shm_edge_servers,&ts);
-
-        }
-
-
-
-    }else if (SMV->ALL_PERFORMANCE_MODE == 2){
-
-        sem_post(SMV->check_performance_mode);
-
-        pthread_mutex_lock(&SMV->shm_edge_servers);
-        //Wait for CPUs to end the work
-        while( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0 || edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] == 0){
-            
-            clock_gettime(CLOCK_REALTIME, &ts);
-            ts.tv_sec += 3;
-            
-            //printf("%d %d %d\n",glob_edge_server_number,edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0],edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1]);
-            pthread_cond_timedwait(&SMV->edge_server_sig,&SMV->shm_edge_servers,&ts);
-            //printf("TIMER EXPIRED ON %d, CHECKING CPUS\n",glob_edge_server_number);
-
-        }
-
-
-    }
-
-    pthread_mutex_unlock(&SMV->shm_edge_servers);
-
-    pthread_mutex_unlock(&m);
-    pthread_mutex_destroy(&m);
 
     char buf[80];
     snprintf(buf,sizeof(buf),"CLOSING EDGE SERVER NO. %d", glob_edge_server_number);
@@ -314,7 +310,7 @@ void CheckMaintenance(pid_t es_pid){
             //received a message
             //printf("received message on edge server %d, %ld %d\n",glob_edge_server_number,rcv_msg.msgtype,rcv_msg.msg_content);
             //pthread_mutex_lock(&SMV->shm_edge_servers);
-            
+
             edge_server_list[glob_edge_server_number].IN_MAINTENANCE = 1;
             pthread_mutex_unlock(&SMV->shm_edge_servers);
 

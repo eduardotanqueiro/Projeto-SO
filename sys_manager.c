@@ -119,7 +119,6 @@ int init(char* file_name)
         edge_server_list[i].IN_MAINTENANCE = 0;
         edge_server_list[i].NUMBER_EXECUTED_TASKS = 0;
         edge_server_list[i].NUMBER_MAINTENENCE_TASKS = 0;
-        edge_server_list[i].PERFORMANCE_MODE = 1;
 
         edge_server_list[i].AVAILABLE_CPUS[0] = 0;
         edge_server_list[i].AVAILABLE_CPUS[1] = 0;

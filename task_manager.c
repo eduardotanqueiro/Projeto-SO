@@ -44,18 +44,12 @@ int TaskManager()
 
 
 
-    // Create message queue
+    // Create fila de mensagens
     id_node_counter = 0;
     fila_mensagens = (linked_list *)malloc(sizeof(linked_list));
     SMV->node_number = 0;
     fila_mensagens->first_node = NULL;
 
-    // Handle End Signal
-    //signal(SIGINT, end_sig_tm);
-
-    //Monitor
-    pthread_t monitor;
-    pthread_create(&monitor,NULL,MonitorEndTM,0);
 
     // Dispatcher Thread
     pthread_create(&tm_threads[1], NULL, dispatcher, 0);
@@ -64,7 +58,7 @@ int TaskManager()
     pthread_create(&tm_threads[0], NULL, scheduler, 0);
 
     //condicao variavel à espera que o system acabe
-    pthread_join(monitor,NULL);
+    MonitorEndTM();
 
     // #ifdef DEBUG
     // pause();
@@ -638,7 +632,7 @@ void* MonitorEndTM(){
 
     pthread_mutex_unlock(&SMV->sem_tm_queue);
 
-    pthread_exit(NULL);
+    exit(0);
 
 }
 
