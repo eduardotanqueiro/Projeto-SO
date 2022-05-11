@@ -21,12 +21,10 @@ int init(char* file_name)
     //Open Log File
     //flog = fopen("log.txt","a");
 
-    //TODO PROTEGER CONTRA MAU INPUT DO CONFIG FILE
     //Check file with regex functions
-    /*
-    char *all_cfg_file = (char*) malloc(sizeof(char) * 8192);
+    char *all_cfg_file = (char*) malloc(sizeof(char) * MAX_CFG_SIZE);
 
-    if (fscanf(initFile,"%s",all_cfg_file) != 1){
+    if ( fread(all_cfg_file,1,MAX_CFG_SIZE,initFile) > MAX_CFG_SIZE ){
         printf("ERROR READING CONFIG FILE\n");
         exit(1);
     }
@@ -38,7 +36,6 @@ int init(char* file_name)
 
     free(all_cfg_file);
     rewind(initFile);
-    */
 
 
     //Process the config file data
@@ -57,7 +54,6 @@ int init(char* file_name)
     SMV = (Shared_Memory_Variables*) shmat(shm_id,NULL,0);
     if (SMV < (Shared_Memory_Variables*) 1){
 		write_screen_log("Error attaching memory!");
-        //cleanup(); TODO
 		exit(1);
 	}
 
@@ -86,8 +82,7 @@ int init(char* file_name)
     pthread_mutex_init(&SMV->sem_tm_queue,&SMV->attr_mutex);
 
 
-    write_screen_log("Shared Memory created");
-    //write_screen_log("Shared Memory attached");
+    write_screen_log("SHARED MEMORY CREATED");
 
 
     //Update some info on the shared memory
@@ -136,10 +131,10 @@ int init(char* file_name)
     //Create named pipe
 	if ( (mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0666)<0) ) {
 		write_screen_log("Cannot create pipe");
-        //TODO cleanup
+        sigint();
 		exit(1);
 	}
-    write_screen_log("Task piped created");
+    write_screen_log("TASK PIPE CREATED");
 
     //Create Message Queue
     if( (SMV->msqid = msgget( ftok("./TASK_PIPE",1) , IPC_CREAT|0700) ) == -1){
@@ -153,7 +148,7 @@ int init(char* file_name)
     //Monitor
     if( (SMV->child_pids[0] = fork()) == 0 )
     {
-        write_screen_log("Monitor process created");
+        write_screen_log("MONITOR PROCESS CREATED");
 
         Monitor();
         exit(0);
@@ -161,7 +156,7 @@ int init(char* file_name)
     else if ( SMV->child_pids[0] == -1)
     {
         write_screen_log("Failed to create monitor process. Closing program...");
-        //cleanup
+        sigint();
         exit(1);
     }
 
@@ -169,7 +164,7 @@ int init(char* file_name)
     if( (SMV->child_pids[1] = fork()) == 0 )
     {
 
-        write_screen_log("Task Manager process created");
+        write_screen_log("TASK MANAGER PROCESS CREATED");
 
         TaskManager();
         exit(0);
@@ -177,7 +172,7 @@ int init(char* file_name)
     else if ( SMV->child_pids[1] == -1)
     {
         write_screen_log("Failed to create Task Manager process. Closing program...");
-        //cleanup
+        sigint();
         exit(2);
     }
 
@@ -185,7 +180,7 @@ int init(char* file_name)
     if( (SMV->child_pids[2] = fork()) == 0 )
     {
 
-        write_screen_log("Maintenance Manager process created");
+        write_screen_log("MAINTENANCE MANAGER PROCESS CREATED");
 
         MaintenanceManager();
         exit(0);
@@ -193,7 +188,7 @@ int init(char* file_name)
     else if ( SMV->child_pids[2] == -1)
     {
         write_screen_log("Failed to create Maintenance Manager process. Closing program...");
-        //cleanup
+        sigint();
         exit(3);
     }
 

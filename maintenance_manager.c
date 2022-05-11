@@ -5,19 +5,18 @@
 
 int MaintenanceManager()
 {
-    signal(SIGINT,SIG_DFL);
+    signal(SIGINT,sigint_maintenance);
 
     #ifdef DEBUG
-    printf("Maintenance Manager!!!\n");
-    //pause();
+    //printf("Maintenance Manager!!!\n");
     #endif
 
-    pid_t *list_pids = malloc(sizeof(pid_t)*SMV->EDGE_SERVER_NUMBER);
+    list_pids = malloc(sizeof(pid_t)*SMV->EDGE_SERVER_NUMBER);
     int edgeserver_to_maintenance; 
     msg work_msg;
     char buf[512];
 
-    //TODO receber informaçao dos edge servers a dizer que estão a trablhar
+    //receber informaçao dos edge servers a dizer que estão a trablhar
     for(int i = 0;i<SMV->EDGE_SERVER_NUMBER;i++){
         //LER MENSAGEM DA MQ
         msgrcv(SMV->msqid,&work_msg, sizeof(work_msg) - sizeof(long),i+1,0);
@@ -28,13 +27,13 @@ int MaintenanceManager()
     write_screen_log("MAINTENANCE MANAGER: ALL EDGE SERVERS READY TO WORK");
 
     //debug
-    sleep(300);
+    //sleep(300);
 
     //work
     while(1){
 
         //Sleep
-        sleep( 10 + rand()%5);
+        sleep( 1 + rand()%5);
 
         edgeserver_to_maintenance = rand()% SMV->EDGE_SERVER_NUMBER;
 
@@ -43,7 +42,7 @@ int MaintenanceManager()
         work_msg.msg_content = 0;
 
         //write na MQ
-        snprintf(buf,sizeof(buf),"SENDING EDGE SERVER %d TO MAINTENANCE\n",edgeserver_to_maintenance);
+        snprintf(buf,sizeof(buf),"SENDING EDGE SERVER %s TO MAINTENANCE",edge_server_list[edgeserver_to_maintenance].SERVER_NAME);
         write_screen_log(buf);
         msgsnd(SMV->msqid,&work_msg,sizeof(work_msg) - sizeof(long),0);
 
@@ -64,4 +63,9 @@ int MaintenanceManager()
     free(list_pids);
     
     return 0;
+}
+
+void sigint_maintenance(){
+    free(list_pids);
+    exit(0);
 }

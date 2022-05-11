@@ -6,4 +6,8 @@
 #include "std.h"
 #endif
 
+pthread_t monitor_end;
+
 int Monitor();
+void *MonitorWork();
+void thread_cleanup_handler_monitor(void* arg);

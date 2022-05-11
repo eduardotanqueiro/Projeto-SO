@@ -6,4 +6,7 @@
 #include "std.h"
 #endif
 
+pid_t* list_pids;
+
 int MaintenanceManager();
+void sigint_maintenance();

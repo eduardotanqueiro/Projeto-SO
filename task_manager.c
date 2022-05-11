@@ -6,7 +6,7 @@
 int TaskManager()
 {
     #ifdef DEBUG
-    printf("Task Manager!!\n");
+    //printf("Task Manager!!\n");
     #endif
 
     
@@ -35,7 +35,7 @@ int TaskManager()
         end_sig_tm();
         exit(1);
     }
-    write_screen_log("Task pipe opened");
+    write_screen_log("TASK PIPE OPEN");
 
 
 
@@ -73,23 +73,22 @@ int TaskManager()
 void *scheduler()
 {
 
-#ifdef DEBUG
-    printf("SCHEDULER\n");
-// pause();
-#endif
+    #ifdef DEBUG
+    //printf("SCHEDULER\n");
+    // pause();
+    #endif
 
     char buffer_pipe[BUF_PIPE];
-    int number_read;
-    int id_task;
-    int num_instructions;
-    int timeout_priority;
-    char *tok;
-    char *resto;
+    int number_read, id_task, num_instructions, timeout_priority;
+    int father_pid = getppid();
+    char *tok,*resto;
+    char xt[10] = "EXIT", sts[10] = "STATS";
     memset(buffer_pipe, 0, BUF_PIPE);
 
     fd_set read_set;
     FD_ZERO(&read_set);
     FD_SET(fd_named_pipe, &read_set);
+
 
     while (1)
     {
@@ -137,7 +136,7 @@ void *scheduler()
         // DEBUG
 
         
-        //Espera por mensagens no TASK_PIPE
+            //Espera por mensagens no TASK_PIPE
         if( select(fd_named_pipe+1,&read_set,NULL,NULL,NULL) > 0){
 
             //printf("MEXEU BUFFER\n");
@@ -149,9 +148,18 @@ void *scheduler()
 
                 if(number_read > 0){
 
-                    //printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
+                    printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
 
                     //TODO Check if it's a QUIT or STATS command before continuing
+                    
+                    if( !strcmp(buffer_pipe,sts)){
+                        //kill(getppid(),SIGTSTP);
+                        printf("%d\n",father_pid);
+                    }else if( !strcmp(buffer_pipe,xt)){
+                        printf("ola\n");
+                        printf("%d\n",father_pid);
+                        //kill(getppid(),SIGINT);
+                    }
 
                     //Split arguments
                     tok = strtok_r(buffer_pipe,";",&resto);
@@ -222,7 +230,7 @@ void *dispatcher()
 {
 
     #ifdef DEBUG
-    printf("DISPATCHER\n");
+    //printf("DISPATCHER\n");
     #endif
 
     pthread_cleanup_push(thread_cleanup_handler, NULL);
@@ -259,13 +267,14 @@ void *dispatcher()
  
         //try to send the task to some edge server. if there are none CPUs available, waits for a signal saying that some CPU just ended a task
         pthread_mutex_lock(&SMV->shm_edge_servers);
+        //debug_print_free_es();
         while( try_to_send(next_task) == 1){
 
             //Nenhum edge server disponivel, esperar por o sinal de algum deles e verificar novamente
             write_screen_log("DISPATCHER: ALL EDGE SERVERS BUSY, WAITING FOR AVAILABLE CPUS");
             pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
 
-            write_screen_log("DISPATCHER: 1 CPU BECAME AVAILABLE\n");
+            write_screen_log("DISPATCHER: 1 CPU BECAME AVAILABLE");
         }
 
         pthread_mutex_unlock(&SMV->shm_edge_servers);
@@ -354,45 +363,42 @@ int try_to_send(Node *next_task){
 */
 void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
 
-    time_t now;
-    struct tm check_time;
-
-    time(&now);
-    localtime_r(&now,&check_time);
-    int tempo_decorrido = (abs(check_time.tm_min - next_task->arrive_time.tm_min)%60 )*60 + abs(check_time.tm_sec - next_task->arrive_time.tm_sec)%60;
+    int tempo_decorrido = time_since_arrive(next_task);
     int tempo_restante = next_task->timeout - tempo_decorrido;
 
-    //pthread_mutex_lock(&SMV->shm_edge_servers);
+    if (tempo_restante <= 0)
+        return;
+
 
     for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
 
-        if( edge_server_list[i].AVAILABLE_CPUS[0] == 1 ){ //CPU1 available on Edge server i
+        if( edge_server_list[i].IN_MAINTENANCE == 0){
+            if( edge_server_list[i].AVAILABLE_CPUS[0] == 1 ){ //CPU1 available on Edge server i
 
-            if( next_task->num_instructions/edge_server_list[i].CPU1_CAP <= tempo_restante){ //CPU1 has capacity to run the task in time
+                if( (long long int)next_task->num_instructions*1000/ ((long long int)edge_server_list[i].CPU1_CAP*1000000) <= tempo_restante){ //CPU1 has capacity to run the task in time
 
-                *(*pipe_to_send) = i;
+                    *(*pipe_to_send) = i;
+                    *(*flag) = 1;
+                    break;
+                }
+
                 *(*flag) = 1;
-                break;
             }
 
-            *(*flag) = 1;
-        }
+            if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
 
-        if ( edge_server_list[i].AVAILABLE_CPUS[1] == 1 ){ //CPU2 available on Edge server i
+                if( (long long int)next_task->num_instructions*1000/ (long long int)edge_server_list[i].CPU2_CAP*1000000 <= tempo_restante){ //CPU2 has capacity to run the task in time
 
-            if( next_task->num_instructions/edge_server_list[i].CPU2_CAP <= tempo_restante){ //CPU2 has capacity to run the task in time
+                    *(*pipe_to_send) = i;
+                    *(*flag) = 1;
+                    break;
+                }
 
-                *(*pipe_to_send) = i;
                 *(*flag) = 1;
-                break;
             }
-
-            *(*flag) = 1;
         }
 
     }
-
-    //pthread_mutex_unlock(&SMV->shm_edge_servers);
 
 
 }
@@ -406,19 +412,19 @@ void end_sig_tm()
     write_screen_log("CLEANING UP TASK MANAGER");
 
     // CLOSE THREADS
-    //pthread_mutex_lock(&SMV->shm_edge_servers);
     pthread_cancel(tm_threads[0]);
     pthread_cancel(tm_threads[1]);
-    //pthread_mutex_unlock(&SMV->shm_edge_servers);
 
 
-    // TODO
-    // ESCREVER NO LOG AS MENSAGENS QUE RESTA NA FILA DO SCHEDULER + NAMED PIPE
-    for(int i=0; i< SMV->node_number;i++){
+    // ESCREVER NO LOG AS MENSAGENS QUE RESTA NA FILA DO SCHEDULER
+    sem_wait(SMV->shm_write);
+    while(aux != NULL){
         snprintf(buffer,sizeof(buffer),"TASK %d LEFT UNDONE",aux->id_node);
         write_screen_log(buffer);
         aux = aux->next_node;
+        SMV->NUMBER_NON_EXECUTED_TASKS++;
     }
+    sem_post(SMV->shm_write);
 
     // CLEAN MESSAGEM QUEUE
     free(fila_mensagens);
@@ -526,31 +532,23 @@ int remove_from_list(linked_list **lista, int id_node)
 void check_priorities(linked_list **lista)
 {
 
-    // time_t now;
-    // struct tm check_time;
-    // int elapsed_minutes;
     int elapsed_seconds;
 
     Node *aux_node = (*lista)->first_node;
+    char buf[256];
 
     while (aux_node != NULL)
     {
 
-        // Check if task has passed timeout;
-        // time(&now);
-        // localtime_r(&now, &check_time);
-
-        // elapsed_minutes = abs(check_time.tm_min - aux_node->arrive_time.tm_min) % 60;
-        // elapsed_seconds = elapsed_minutes * 60 + abs(check_time.tm_sec - aux_node->arrive_time.tm_sec)%60;
         elapsed_seconds = time_since_arrive(aux_node);
 
         if (elapsed_seconds >= aux_node->timeout)
         {
 
-            //TODO Escrever para o log e remover a task da fila
-            write_screen_log("Task x removida da fila por timeout");
+            //Escrever para o log e remover a task da fila
+            snprintf(buf,sizeof(buf),"TASK %d REMOVED FROM QUEUE BY TIMEOUT",aux_node->id_node);
+            write_screen_log(buf);
 
-            //errado, redo
             int id_to_remove = aux_node->id_node;
             aux_node = aux_node->next_node;
 
@@ -653,5 +651,7 @@ void* MonitorEndTM(){
 void thread_cleanup_handler(void* arg){
 
     pthread_mutex_unlock(&SMV->shm_edge_servers);
+    pthread_mutex_unlock(&SMV->sem_tm_queue);
+    //pthread_cond_signal(&SMV->new_task_cond);
 
 }

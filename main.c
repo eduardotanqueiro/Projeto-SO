@@ -24,9 +24,9 @@ int main(int argc, char** argv){
     signal(SIGTSTP,sigtstp);
     signal(SIGINT,sigint);
 
-    #ifdef DEBUG
-    pause();
-    #endif
+    //Keep handling CTRL+Z until CTRL+C comes and finishes the program
+    while(1)
+        pause();
 
 
     return 0;
@@ -36,7 +36,7 @@ void cleanup(){
 
 
     #ifdef DEBUG
-    printf("aqui1\n");
+    //printf("aqui1\n");
     #endif
 
     //SINAL PARA AVISAR OS PROCESSOS QUE É PARA TERMINAR
@@ -44,15 +44,18 @@ void cleanup(){
 
     // ESPERA AQUI, SÓ PODE FECHAR A SHM QUANDO TODOS OS OUTROS PROCESSOS FECHAREM
     // WAIT FOR CHILDS
-    for(int i = 0;i<3;i++){
-        wait(NULL);
-    }
-    
+    // for(int i = 0;i<3;i++){
+    //     wait(NULL);
+    // }
+    int wait_status;
+    while ( (wait_status=wait(NULL))>=0 || (wait_status == -1 && errno == EINTR) );
+
+
     //PRINT ESTATÍSTICAS
     sigtstp();
 
     #ifdef DEBUG
-    printf("aqui2\n");
+    //printf("aqui2\n");
     #endif
 
     //Maintenance Manager Message Queue
@@ -65,11 +68,19 @@ void cleanup(){
     sem_close(SMV->check_performance_mode);
 
 
+    #ifdef DEBUG
+    //printf("aqui3\n");
+    #endif
+
     pthread_cond_destroy(&SMV->edge_server_sig);
     pthread_cond_destroy(&SMV->end_system_sig);
-    pthread_cond_destroy(&SMV->new_task_cond);
+    //pthread_cond_destroy(&SMV->new_task_cond);
     pthread_condattr_destroy(&SMV->attr_cond);
 
+    #ifdef DEBUG
+    //printf("aqui4\n");
+    #endif
+    
     pthread_mutex_destroy(&SMV->shm_edge_servers);
     pthread_mutex_destroy(&SMV->sem_tm_queue);
     pthread_mutexattr_destroy(&SMV->attr_mutex);
@@ -136,11 +147,11 @@ void sigtstp(){
     for(int i = 0;i<SMV->EDGE_SERVER_NUMBER;i++){
 
         memset(buffer,0,BUFSIZ);
-        snprintf(buffer,BUFSIZ,"Completed tasks at Edge Server %d: %d",i,edge_server_list[i].NUMBER_EXECUTED_TASKS);
+        snprintf(buffer,BUFSIZ,"COMPLETED TASKS AT EDGE SERVER %d: %d",i,edge_server_list[i].NUMBER_EXECUTED_TASKS);
         write_screen_log(buffer);
 
         memset(buffer,0,BUFSIZ);
-        snprintf(buffer,BUFSIZ,"Completed maintenance operations at Edge Server %d: %d",i,edge_server_list[i].NUMBER_MAINTENENCE_TASKS);
+        snprintf(buffer,BUFSIZ,"COMPLETED MAINTENANCE TASKS AT EDGE SERVER %d: %d",i,edge_server_list[i].NUMBER_MAINTENENCE_TASKS);
         write_screen_log(buffer); 
         
         total_tasks += edge_server_list[i].NUMBER_EXECUTED_TASKS;
@@ -153,18 +164,18 @@ void sigtstp(){
     
     memset(buffer,0,BUFSIZ);
     if(total_tasks != 0)
-        snprintf(buffer,BUFSIZ,"Mean of response time between tasks: %d", (int)SMV->total_response_time/total_tasks );
+        snprintf(buffer,BUFSIZ,"MEAN OF RESPONSE TIME BETWEEN TASKS: %d", (int)SMV->total_response_time/total_tasks );
     else
-        snprintf(buffer,BUFSIZ,"Mean of response time between tasks: 0");
+        snprintf(buffer,BUFSIZ,"MEAN OF RESPONSE TIME BETWEEN TASKS: 0");
     write_screen_log(buffer);
 
     memset(buffer,0,BUFSIZ);
-    snprintf(buffer,BUFSIZ,"Total number of completed tasks: %d",total_tasks);
+    snprintf(buffer,BUFSIZ,"TOTAL NUMBER OF COMPLETED TASKS: %d",total_tasks);
     write_screen_log(buffer);
 
 
     memset(buffer,0,BUFSIZ);
-    snprintf(buffer,BUFSIZ,"Number of non-executed tasks: %d",SMV->NUMBER_NON_EXECUTED_TASKS);
+    snprintf(buffer,BUFSIZ,"NUMBER OF NON EXECUTED TASKS: %d",SMV->NUMBER_NON_EXECUTED_TASKS);
     write_screen_log(buffer);
     
     sem_post(SMV->shm_write);

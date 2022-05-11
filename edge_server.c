@@ -52,7 +52,6 @@ int EdgeServer(int edge_server_number)
 
         //READ FROM PIPE FOR BUFFER
         read( edge_server_list[ glob_edge_server_number].pipe[0] , buffer , 512);
-
         pthread_mutex_lock(&SMV->shm_edge_servers);
 
         // #ifdef DEBUG
@@ -75,9 +74,9 @@ int EdgeServer(int edge_server_number)
             strcpy( thread_args1.task_buf, buffer);
 
             pthread_create(&cpu_threads[0],NULL,vCPU, (void*) &thread_args1);
-            
-            //Wait for thread end
-            pthread_join(cpu_threads[0],NULL);
+
+            pthread_detach(cpu_threads[0]);
+
 
 
         }else if (SMV->ALL_PERFORMANCE_MODE == 2){
@@ -108,6 +107,7 @@ int EdgeServer(int edge_server_number)
                 strcpy(thread_args2.task_buf,buffer);
 
                 pthread_create(&cpu_threads[1],NULL,vCPU, (void*) &thread_args2);
+                pthread_detach(cpu_threads[1]);
 
             }
             else if( aval_cpu1 == 1){ //CPU1 disponível TROCAR PARA O 2 PRIMEIRO
@@ -121,14 +121,10 @@ int EdgeServer(int edge_server_number)
                 strcpy(thread_args1.task_buf,buffer);
 
                 pthread_create(&cpu_threads[0],NULL,vCPU, (void*) &thread_args1);
+                pthread_detach(cpu_threads[0]);
 
 
             }
-
-
-            //check if any thread ended meanwhile
-            // pthread_tryjoin_np(&cpu_threads[0],NULL);
-            // pthread_tryjoin_np(&cpu_threads[1],NULL);
 
         }
 
@@ -167,10 +163,10 @@ void* vCPU(void* arg){
 
     //do work
     if( t_args->cpu == 1){
-        usleep( (int) (num_instructions / edge_server_list[glob_edge_server_number].CPU1_CAP  * 1000000) );
+        usleep( (long long int) ( (long long int) num_instructions*1000 / (long long int)(edge_server_list[glob_edge_server_number].CPU1_CAP*1000000)  * 1000000) );
     }
     else{
-        usleep( (int) (num_instructions / edge_server_list[glob_edge_server_number].CPU2_CAP  * 1000000) );
+        usleep( (long long int) ( (long long int) num_instructions*1000 / (long long int)(edge_server_list[glob_edge_server_number].CPU2_CAP*1000000)  * 1000000) );
     }
 
 
@@ -201,7 +197,7 @@ void* MonitorEnd(){
 
     //Wait for System Manager Signal saying that we should end servers
     //resolver isto dos mutexes
-    pthread_mutex_t m; 
+    pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER; 
     struct timespec   ts; //documentação pthread_cond_timedwait() da IBM
 
     pthread_mutex_lock(&m);
@@ -272,6 +268,9 @@ void DoMaintenance(pid_t es_pid){
         if( msgrcv(SMV->msqid,&rcv_msg, sizeof(rcv_msg) - sizeof(long),es_pid, IPC_NOWAIT) != -1){
             //received a message
             //printf("received message on edge server %d, %ld %d\n",glob_edge_server_number,rcv_msg.msgtype,rcv_msg.msg_content);
+            pthread_mutex_lock(&SMV->shm_edge_servers);
+            edge_server_list[glob_edge_server_number].IN_MAINTENANCE = 1;
+            pthread_mutex_unlock(&SMV->shm_edge_servers);
 
             //check performance mode and wait for threads
             sem_wait(SMV->check_performance_mode);
@@ -279,6 +278,10 @@ void DoMaintenance(pid_t es_pid){
                 sem_post(SMV->check_performance_mode);
 
                 pthread_mutex_lock(&SMV->shm_edge_servers);
+                while(edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0){
+                    pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
+                }
+
                 //set cpu as unavailable for maintenance
                 edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] = 0;
                 pthread_mutex_unlock(&SMV->shm_edge_servers);
@@ -291,43 +294,36 @@ void DoMaintenance(pid_t es_pid){
                 pthread_mutex_lock(&SMV->shm_edge_servers);
                 if( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0 && edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] == 0){
                     
-                    //Thread is working, wait for it
-                    pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
-
                     //Check which CPU ended
-                    //TODO
-                    //LOOP COM PTHREAD_COND_WAIT
+                    //Threads are working, wait for both
+                    while( (edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0) || (edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] == 0)){
+                        pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
+                    }
 
 
                 }
                 else if( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0){
                     //Only CPU1 Working
-                    //Set CPU2 as unavailable
-                    edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] = 0;
-
                     //Thread is working, wait for it
                     while(edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0){
                         pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
                     }
 
-                    //Set CPU1 as unavailable
-                    edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] = 0;
 
                 }
                 else if( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] == 0){
                     //Only CPU2 Working
-                    //Set CPU1 as unavailable
-                    edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] = 0;
-
                     //Thread is working, wait for it
                     while(edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] == 0){
                         pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
                     }
 
-                    //Set CPU2 as unavailable
-                    edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] = 0;
 
                 }
+
+                //set cpus unavailable
+                edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] = 0;
+                edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] = 0;
 
                 pthread_mutex_unlock(&SMV->shm_edge_servers);
 
@@ -352,21 +348,26 @@ void DoMaintenance(pid_t es_pid){
                 sem_post(SMV->check_performance_mode);
 
                 pthread_mutex_lock(&SMV->shm_edge_servers);
-                //set cpu as available
+
+                //set cpu as available and update maintenance numbers
                 edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] = 1;
-                pthread_mutex_unlock(&SMV->shm_edge_servers);
+
 
             }
             else if( SMV->ALL_PERFORMANCE_MODE == 2){
                 sem_post(SMV->check_performance_mode);
 
-                //set both cpus as available
+                //set both cpus as available and update maintenance numbers
                 pthread_mutex_lock(&SMV->shm_edge_servers);
                 edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] = 1;
                 edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] = 1;
-                pthread_mutex_unlock(&SMV->shm_edge_servers);
+
 
             }
+
+            edge_server_list[glob_edge_server_number].NUMBER_MAINTENENCE_TASKS++;
+            edge_server_list[glob_edge_server_number].IN_MAINTENANCE = 0;
+            pthread_mutex_unlock(&SMV->shm_edge_servers);
 
             memset(buffer,0,sizeof(buffer));
             snprintf(buffer,sizeof(buffer),"EDGE SERVER %d ENDED MAINTENANCE",glob_edge_server_number);

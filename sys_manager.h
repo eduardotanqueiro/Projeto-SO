@@ -11,7 +11,7 @@
 #include "task_manager.h"
 #include <regex.h>
 
-
+#define MAX_CFG_SIZE 8192
 
 int init(char* file_name);
 int check_regex(char *text, char *regex);

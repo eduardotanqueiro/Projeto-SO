@@ -21,6 +21,7 @@
 #include <signal.h>
 
 #include <sys/msg.h>
+#include <errno.h>
 
 
 #define DEBUG //remove this line to remove debug messages
@@ -104,3 +105,4 @@ Edge_Server* edge_server_list;
 
 //Functions 
 void write_screen_log(char* str);
+void sigint();

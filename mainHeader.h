@@ -14,7 +14,6 @@
 #endif
 
 void cleanup();
-void sigint();
 void sigtstp();
 
 
