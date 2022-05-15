@@ -15,7 +15,7 @@ int EdgeServer(int edge_server_number)
     glob_edge_server_number = edge_server_number;
 
     //METER O CPU1 DISPONIVEL AO INICIO
-    //NÃO ESTAO A SER USADOS MECANISMOS DE SINCRONIZAÇÃO AQUI PORQUE CADA EDGE SERVER VAI ALTERAR UMA ZONA DIFERENTE
+    //NÃO ESTAO A SER USADOS MECANISMOS DE SINCRONIZAÇÃO AQUI PORQUE CADA EDGE SERVER VAI ALTERAR UMA ZONA DIFERENTE INICIALMENTE
     edge_server_list[ glob_edge_server_number].AVAILABLE_CPUS[0] = 1;
 
 
@@ -30,6 +30,11 @@ int EdgeServer(int edge_server_number)
     //Thread that controls the end of the system
     pthread_t monitor;
     pthread_create(&monitor,NULL,MonitorEnd,0);
+
+    //Thread that sets up maintenance
+    pthread_t maintenance;
+    pthread_create(&maintenance,NULL,CheckMaintenance,(void*)&es_pid);
+    pthread_detach(maintenance);
     
     //Log
     snprintf(buf,sizeof(buf),"%s READY",edge_server_list[ glob_edge_server_number ].SERVER_NAME);
@@ -45,26 +50,11 @@ int EdgeServer(int edge_server_number)
     args_cpu thread_args2;
     thread_args2.cpu = 2;
 
-    pthread_mutex_lock(&SMV->shm_edge_servers);
-
-    //debug check flags
-    //set read for non-blocking mode
-    // int flags = fcntl(edge_server_list[glob_edge_server_number].pipe[0],F_GETFL,0);
-    // fcntl(edge_server_list[glob_edge_server_number].pipe[0],F_SETFD, flags | O_NONBLOCK);
-    //printf("flags %d %d\n",glob_edge_server_number,flags);
-    //
 
     while(1){
-        
-        CheckMaintenance(es_pid);
-
-        pthread_cond_wait(&SMV->edge_server_move,&SMV->shm_edge_servers);
-        
-        CheckMaintenance(es_pid);
 
         //READ FROM PIPE FOR BUFFER
-        //TODO erro
-        if( read( edge_server_list[ glob_edge_server_number].pipe[0] , buffer , 512) != -1 ){ // check whether pipe has something to read or not (pipe is in non-blocking read mode)
+        if( read( edge_server_list[ glob_edge_server_number].pipe[0] , buffer , 512) != -1 ){
             
                 pthread_mutex_lock(&SMV->shm_edge_servers);
 
@@ -80,6 +70,7 @@ int EdgeServer(int edge_server_number)
                     sem_post(SMV->check_performance_mode);
 
                     //send to vCPU1
+
                     //Set CPU as not available
                     edge_server_list[ glob_edge_server_number ].AVAILABLE_CPUS[0] = 0;
                     pthread_mutex_unlock(&SMV->shm_edge_servers);
@@ -104,14 +95,13 @@ int EdgeServer(int edge_server_number)
 
                     if( (aval_cpu1 == 0) && (aval_cpu2 == 0)){ //Nenhum CPU disponivel
 
-                        //error? shouldnt come here, só vêm tarefas pro server quando há algum cpu disponivel
+                        //Error handling: program shouldn't reach this code, but if it does, it waits for some CPU to end work
+                        //before continuing
+
                         //wait for some cpu to become available
                         pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
                         continue;
 
-                        // pthread_mutex_unlock(&SMV->shm_edge_servers);
-                        // printf("EDGE SERVER %d error\n",glob_edge_server_number);
-                        // exit(1);
 
                     }
                     else if ( aval_cpu2 == 1){ //CPU2 disponível
@@ -128,7 +118,7 @@ int EdgeServer(int edge_server_number)
                         pthread_detach(cpu_threads[1]);
 
                     }
-                    else if( aval_cpu1 == 1){ //CPU1 disponível TROCAR PARA O 2 PRIMEIRO
+                    else if( aval_cpu1 == 1){ //CPU1 disponível
 
                         //send to vCPU1
                         //Set CPU as not available
@@ -149,14 +139,6 @@ int EdgeServer(int edge_server_number)
         }
 
     }
-
-    pthread_mutex_unlock(&SMV->shm_edge_servers);
-
-    #ifdef DEBUG
-    pause();
-    #endif
-
-    // end_sig();
 
     return 0;
 }
@@ -194,6 +176,7 @@ void* vCPU(void* arg){
 
     //check performance mode FOR MODE 2
     sem_wait(SMV->check_performance_mode);
+
     if( t_args->cpu == 2){ //só mete o cpu2 disponivel se tiver no modo performance 2
         if(  SMV->ALL_PERFORMANCE_MODE == 2){
             edge_server_list[ glob_edge_server_number ].AVAILABLE_CPUS[ t_args->cpu - 1] = 1;
@@ -227,9 +210,7 @@ void* vCPU(void* arg){
 void* MonitorEnd(){
 
     //Wait for System Manager Signal saying that we should end servers
-    //resolver isto dos mutexes
     struct timespec   ts; //documentação pthread_cond_timedwait() da IBM
-
 
     pthread_cond_wait(&SMV->end_system_sig,&SMV->shm_edge_servers);
 
@@ -249,16 +230,13 @@ void* MonitorEnd(){
 
             sem_post(SMV->check_performance_mode);
 
-            //pthread_mutex_lock(&SMV->shm_edge_servers);
             //Wait for CPU1 to end the work
             while( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0){
 
                 clock_gettime(CLOCK_REALTIME, &ts);
                 ts.tv_sec += 3;
 
-                //printf("%d %d %d\n",glob_edge_server_number,edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0],edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1]);
                 pthread_cond_timedwait(&SMV->edge_server_sig,&SMV->shm_edge_servers,&ts);
-
             }
 
 
@@ -267,17 +245,13 @@ void* MonitorEnd(){
 
             sem_post(SMV->check_performance_mode);
 
-            //pthread_mutex_lock(&SMV->shm_edge_servers);
             //Wait for CPUs to end the work
             while( edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0] == 0 || edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1] == 0){
                 
                 clock_gettime(CLOCK_REALTIME, &ts);
                 ts.tv_sec += 3;
                 
-                //printf("%d %d %d\n",glob_edge_server_number,edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[0],edge_server_list[glob_edge_server_number].AVAILABLE_CPUS[1]);
                 pthread_cond_timedwait(&SMV->edge_server_sig,&SMV->shm_edge_servers,&ts);
-                //printf("TIMER EXPIRED ON %d, CHECKING CPUS\n",glob_edge_server_number);
-
             }
 
 
@@ -294,17 +268,20 @@ void* MonitorEnd(){
 
 }
 
-void CheckMaintenance(pid_t es_pid){
+void* CheckMaintenance(void* es_pid_arg){
 
     char buffer[512];
     msg rcv_msg;
+    pid_t es_pid = *((pid_t*)(es_pid_arg));
 
-    //CHECK FOR MESSAGES FROM MAINTENANCE MANAGER
-        if( msgrcv(SMV->msqid,&rcv_msg, sizeof(rcv_msg) - sizeof(long),es_pid, IPC_NOWAIT) != -1){
+
+    //WAIT FOR MESSAGES FROM MAINTENANCE MANAGER
+    while(1){
+
+        if( msgrcv(SMV->msqid,&rcv_msg, sizeof(rcv_msg) - sizeof(long),es_pid, 0) != -1){
             //received a message
-            //printf("received message on edge server %d, %ld %d\n",glob_edge_server_number,rcv_msg.msgtype,rcv_msg.msg_content);
-            //pthread_mutex_lock(&SMV->shm_edge_servers);
 
+            pthread_mutex_lock(&SMV->shm_edge_servers);
             edge_server_list[glob_edge_server_number].IN_MAINTENANCE = 1;
             pthread_mutex_unlock(&SMV->shm_edge_servers);
 
@@ -414,8 +391,9 @@ void CheckMaintenance(pid_t es_pid){
 
             pthread_mutex_unlock(&SMV->shm_edge_servers);
 
-        }else
-            pthread_mutex_unlock(&SMV->shm_edge_servers);
+        }
+
+    }
 
 }
 

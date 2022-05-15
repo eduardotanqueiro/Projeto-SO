@@ -75,7 +75,6 @@ int init(char* file_name)
 
     pthread_cond_init(&SMV->new_task_cond,&SMV->attr_cond);
 
-    pthread_cond_init(&SMV->edge_server_move,&SMV->attr_cond);
 
     pthread_mutexattr_init(&SMV->attr_mutex);
     pthread_mutexattr_setpshared(&SMV->attr_mutex,PTHREAD_PROCESS_SHARED);
@@ -88,7 +87,7 @@ int init(char* file_name)
 
 
     //Update some info on the shared memory
-    sem_wait(SMV->shm_write); //TIRAR???
+    sem_wait(SMV->shm_write);
     
     SMV->QUEUE_POS = queue_pos_temp;
     SMV->MAX_WAIT = max_wait_temp;
@@ -98,6 +97,7 @@ int init(char* file_name)
 
     SMV->total_response_time = 0;
 
+    sem_post(SMV->shm_write);
 
     //Put edge servers on shared memory
     //Read properties for each Edge Server
@@ -113,8 +113,6 @@ int init(char* file_name)
             fscanf(initFile,"%12[^,],%d,%d",&edge_server_list[i].SERVER_NAME[0],&edge_server_list[i].CPU1_CAP,&edge_server_list[i].CPU2_CAP);
         }
 
-        //TODO CHECKAR SE O CPU1_CAP > CPU2_CAP, SE SIM FECHAR PROGRAMA????
-
         edge_server_list[i].EDGE_SERVER_NUMBER = i;
         edge_server_list[i].IN_MAINTENANCE = 0;
         edge_server_list[i].NUMBER_EXECUTED_TASKS = 0;
@@ -123,8 +121,6 @@ int init(char* file_name)
         edge_server_list[i].AVAILABLE_CPUS[0] = 0;
         edge_server_list[i].AVAILABLE_CPUS[1] = 0;
     }
-
-    sem_post(SMV->shm_write);
 
 
 
@@ -145,16 +141,16 @@ int init(char* file_name)
 
 
     //Create processes
-
+    int check_process;
     //Monitor
-    if( (SMV->child_pids[0] = fork()) == 0 )
+    if( (check_process = fork()) == 0 )
     {
         write_screen_log("MONITOR PROCESS CREATED");
 
         Monitor();
         exit(0);
     }
-    else if ( SMV->child_pids[0] == -1)
+    else if ( check_process == -1)
     {
         write_screen_log("Failed to create monitor process. Closing program...");
         sigint();
@@ -162,7 +158,7 @@ int init(char* file_name)
     }
 
     //Task manager
-    if( (SMV->child_pids[1] = fork()) == 0 )
+    if( (check_process = fork()) == 0 )
     {
 
         write_screen_log("TASK MANAGER PROCESS CREATED");
@@ -170,7 +166,7 @@ int init(char* file_name)
         TaskManager();
         exit(0);
     }
-    else if ( SMV->child_pids[1] == -1)
+    else if ( check_process == -1)
     {
         write_screen_log("Failed to create Task Manager process. Closing program...");
         sigint();
@@ -178,7 +174,7 @@ int init(char* file_name)
     }
 
     //Maintenance Manager
-    if( (SMV->child_pids[2] = fork()) == 0 )
+    if( (check_process = fork()) == 0 )
     {
 
         write_screen_log("MAINTENANCE MANAGER PROCESS CREATED");
@@ -186,7 +182,7 @@ int init(char* file_name)
         MaintenanceManager();
         exit(0);
     }
-    else if ( SMV->child_pids[2] == -1)
+    else if ( check_process == -1)
     {
         write_screen_log("Failed to create Maintenance Manager process. Closing program...");
         sigint();

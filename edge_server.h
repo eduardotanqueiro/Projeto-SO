@@ -14,7 +14,7 @@ pthread_t cpu_threads[2];
 int EdgeServer(int edge_server_number);
 void* vCPU(void* args);
 void* MonitorEnd();
-void CheckMaintenance(pid_t es_pid);
+void* CheckMaintenance(void* es_pid_arg);
 
 typedef struct{
     int cpu;

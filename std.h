@@ -61,14 +61,10 @@ typedef struct
     int NUMBER_NON_EXECUTED_TASKS;
     int total_response_time;
 
-    //Processes variables
-    pid_t child_pids[3]; //Task manager, Monitor and Maintenance Manager processes //TODO TIRAR??
-
-
     //Semaphores
     sem_t *log_write_mutex;
     sem_t *shm_write;
-    pthread_mutex_t shm_edge_servers; //mudar para pthread_mutex
+    pthread_mutex_t shm_edge_servers;
     sem_t *check_performance_mode;
 
     pthread_condattr_t attr_cond;
@@ -80,9 +76,6 @@ typedef struct
     pthread_mutexattr_t attr_mutex;
     pthread_mutex_t sem_tm_queue;
     pthread_cond_t new_task_cond;
-
-    //Maintenance and Dispatcher
-    pthread_cond_t edge_server_move;
 
     //Maintenance Manager Message Queue
     int msqid;

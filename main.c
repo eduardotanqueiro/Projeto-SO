@@ -35,28 +35,17 @@ int main(int argc, char** argv){
 void cleanup(){
 
 
-    #ifdef DEBUG
-    //printf("aqui1\n");
-    #endif
-
     //SINAL PARA AVISAR OS PROCESSOS QUE É PARA TERMINAR
     pthread_cond_broadcast(&SMV->end_system_sig);
 
     // ESPERA AQUI, SÓ PODE FECHAR A SHM QUANDO TODOS OS OUTROS PROCESSOS FECHAREM
     // WAIT FOR CHILDS
-    // for(int i = 0;i<3;i++){
-    //     wait(NULL);
-    // }
     int wait_status;
     while ( (wait_status=wait(NULL))>=0 || (wait_status == -1 && errno == EINTR) );
 
 
     //PRINT ESTATÍSTICAS
     sigtstp();
-
-    #ifdef DEBUG
-    //printf("aqui2\n");
-    #endif
 
     //Maintenance Manager Message Queue
     msgctl(SMV->msqid, IPC_RMID, NULL);
@@ -67,25 +56,10 @@ void cleanup(){
     sem_close(SMV->shm_write);
     sem_close(SMV->check_performance_mode);
 
-
-    #ifdef DEBUG
-    //printf("aqui3\n");
-    #endif
-
-    printf("0\n");
     pthread_cond_destroy(&SMV->edge_server_sig);
-    printf("1\n");
     pthread_cond_destroy(&SMV->end_system_sig);
-    //pthread_cond_destroy(&SMV->new_task_cond);
-    printf("2\n");
-    pthread_cond_destroy(&SMV->edge_server_move);
-    printf("3\n");
     pthread_condattr_destroy(&SMV->attr_cond);
 
-    #ifdef DEBUG
-    //printf("aqui4\n");
-    #endif
-    
     pthread_mutex_destroy(&SMV->shm_edge_servers);
     pthread_mutex_destroy(&SMV->sem_tm_queue);
     pthread_mutexattr_destroy(&SMV->attr_mutex);

@@ -9,8 +9,8 @@ int MaintenanceManager()
     #ifdef DEBUG
     //printf("Maintenance Manager!!!\n");
     #endif
-    signal(SIGINT,sigint_maintenance);
 
+    signal(SIGINT,sigint_maintenance);
 
     list_pids = malloc(sizeof(pid_t)*SMV->EDGE_SERVER_NUMBER);
     int edgeserver_to_maintenance; 
@@ -33,22 +33,17 @@ int MaintenanceManager()
         //Sleep
         sleep( 1 + rand()%5);
 
-
         edgeserver_to_maintenance = rand()% SMV->EDGE_SERVER_NUMBER;
 
         //prepare message
         work_msg.msgtype = list_pids[edgeserver_to_maintenance];
         work_msg.msg_content = 0;
 
-
         //write na MQ
         snprintf(buf,sizeof(buf),"SENDING ES %s TO MAINTENANCE",edge_server_list[edgeserver_to_maintenance].SERVER_NAME);
         write_screen_log(buf);
         msgsnd(SMV->msqid,&work_msg,sizeof(work_msg) - sizeof(long),0);
 
-
-        //warn edge server 
-        pthread_cond_broadcast(&SMV->edge_server_move);
 
         //wait for edge server saying that is ready for maintenance
         msgrcv(SMV->msqid,&work_msg, sizeof(work_msg) - sizeof(long),list_pids[edgeserver_to_maintenance] + 50,0);
