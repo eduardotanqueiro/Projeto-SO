@@ -42,7 +42,7 @@ int MaintenanceManager()
 
 
         //write na MQ
-        snprintf(buf,sizeof(buf),"SENDING EDGE SERVER %d TO MAINTENANCE",edgeserver_to_maintenance);
+        snprintf(buf,sizeof(buf),"SENDING ES %s TO MAINTENANCE",edge_server_list[edgeserver_to_maintenance].SERVER_NAME);
         write_screen_log(buf);
         msgsnd(SMV->msqid,&work_msg,sizeof(work_msg) - sizeof(long),0);
 

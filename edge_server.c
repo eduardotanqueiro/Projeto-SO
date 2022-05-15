@@ -53,12 +53,6 @@ int EdgeServer(int edge_server_number)
     // fcntl(edge_server_list[glob_edge_server_number].pipe[0],F_SETFD, flags | O_NONBLOCK);
     //printf("flags %d %d\n",glob_edge_server_number,flags);
     //
-    fd_set read_set;
-    FD_ZERO(&read_set);
-    FD_SET(edge_server_list[ glob_edge_server_number].pipe[0],&read_set);
-    
-    struct timeval select_timeout;
-    select_timeout.tv_usec= 1000;
 
     while(1){
         
@@ -70,11 +64,8 @@ int EdgeServer(int edge_server_number)
 
         //READ FROM PIPE FOR BUFFER
         //TODO erro
-        if( (select( edge_server_list[ glob_edge_server_number].pipe[0] + 1,&read_set,NULL,NULL,&select_timeout) > 0) ){ // check whether pipe has something to read or not (pipe is in non-blocking read mode)
+        if( read( edge_server_list[ glob_edge_server_number].pipe[0] , buffer , 512) != -1 ){ // check whether pipe has something to read or not (pipe is in non-blocking read mode)
             
-            if(FD_ISSET(edge_server_list[ glob_edge_server_number].pipe[0],&read_set) ){
-                read( edge_server_list[ glob_edge_server_number].pipe[0] , buffer , 512);
-
                 pthread_mutex_lock(&SMV->shm_edge_servers);
 
                 // #ifdef DEBUG
@@ -114,9 +105,13 @@ int EdgeServer(int edge_server_number)
                     if( (aval_cpu1 == 0) && (aval_cpu2 == 0)){ //Nenhum CPU disponivel
 
                         //error? shouldnt come here, só vêm tarefas pro server quando há algum cpu disponivel
-                        pthread_mutex_unlock(&SMV->shm_edge_servers);
-                        printf("EDGE SERVER %d error\n",glob_edge_server_number);
-                        exit(1);
+                        //wait for some cpu to become available
+                        pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
+                        continue;
+
+                        // pthread_mutex_unlock(&SMV->shm_edge_servers);
+                        // printf("EDGE SERVER %d error\n",glob_edge_server_number);
+                        // exit(1);
 
                     }
                     else if ( aval_cpu2 == 1){ //CPU2 disponível
@@ -149,7 +144,6 @@ int EdgeServer(int edge_server_number)
 
                     }
 
-                }
             }
 
         }
@@ -378,7 +372,7 @@ void CheckMaintenance(pid_t es_pid){
 
             //write to log
             memset(buffer,0,sizeof(buffer));
-            snprintf(buffer,sizeof(buffer),"EDGE SERVER %d GOING ON MAINTENANCE",glob_edge_server_number);
+            snprintf(buffer,sizeof(buffer),"EDGE SERVER %s GOING ON MAINTENANCE",edge_server_list[glob_edge_server_number].SERVER_NAME);
             write_screen_log(buffer);
 
             //wait for maitenance manager saying maintenance is done
@@ -411,7 +405,7 @@ void CheckMaintenance(pid_t es_pid){
             edge_server_list[glob_edge_server_number].IN_MAINTENANCE = 0;
 
             memset(buffer,0,sizeof(buffer));
-            snprintf(buffer,sizeof(buffer),"EDGE SERVER %d ENDED MAINTENANCE",glob_edge_server_number);
+            snprintf(buffer,sizeof(buffer),"EDGE SERVER %s ENDED MAINTENANCE",edge_server_list[glob_edge_server_number].SERVER_NAME);
             write_screen_log(buffer);
 
             

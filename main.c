@@ -72,10 +72,14 @@ void cleanup(){
     //printf("aqui3\n");
     #endif
 
+    printf("0\n");
     pthread_cond_destroy(&SMV->edge_server_sig);
+    printf("1\n");
     pthread_cond_destroy(&SMV->end_system_sig);
     //pthread_cond_destroy(&SMV->new_task_cond);
+    printf("2\n");
     pthread_cond_destroy(&SMV->edge_server_move);
+    printf("3\n");
     pthread_condattr_destroy(&SMV->attr_cond);
 
     #ifdef DEBUG

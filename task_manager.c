@@ -81,7 +81,6 @@ void *scheduler()
     int number_read, id_task, num_instructions, timeout_priority;
     int father_pid = getppid();
     char *tok,*resto;
-    char xt[10] = "EXIT", sts[10] = "STATS";
     memset(buffer_pipe, 0, BUF_PIPE);
 
     fd_set read_set;
@@ -91,50 +90,7 @@ void *scheduler()
 
     while (1)
     {
-
-        // DEBUG
-        /*
-        for (int i = 0; i < 3; i++)
-        {
-
-            num_instructions = i;
-            timeout_priority = i;
-
-            // Reevaluate priorities and insert into message list
-            pthread_mutex_lock(&rd_wr_list);
-            check_priorities(&fila_mensagens);
-
-            insert_list(&fila_mensagens, timeout_priority, num_instructions, timeout_priority);
-            insert_list(&fila_mensagens, timeout_priority*2, num_instructions*2, timeout_priority*2);
-            insert_list(&fila_mensagens, timeout_priority*3, num_instructions*3, timeout_priority*3);
-            insert_list(&fila_mensagens, timeout_priority*5, num_instructions*5, timeout_priority*5);
-
-
-            Node *aux = fila_mensagens->first_node;
-            while (aux != NULL)
-            {
-                printf("No: %d,%d,%d\n", aux->id_node, aux->num_instructions, aux->priority);
-                aux = aux->next_node;
-            }
-
-            //if(fila_mensagens->node_number == 1){
-                // Avisar o dispatcher que já há mensangens na fila
-                pthread_cond_signal(&new_task_cond);
-            //}
-
-
-            pthread_mutex_unlock(&rd_wr_list);
-
-
-
-            printf("antes sleep\n");
-            sleep(5);
-            printf("depois\n");
-        }
-        */
-        // DEBUG
-
-        
+       
         //Espera por mensagens no TASK_PIPE
         if( select(fd_named_pipe+1,&read_set,NULL,NULL,NULL) > 0){
 
@@ -147,17 +103,13 @@ void *scheduler()
 
                 if(number_read > 0){
 
-                    //printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
+                    // printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
 
-                    //TODO Check if it's a QUIT or STATS command before continuing
-                    
-                    if( !strcmp(buffer_pipe,sts)){
-                        //kill(getppid(),SIGTSTP);
-                        printf("%d\n",father_pid);
-                    }else if( !strcmp(buffer_pipe,xt)){
-                        printf("ola\n");
-                        printf("%d\n",father_pid);
-                        //kill(getppid(),SIGINT);
+                    //Check if it's a QUIT or STATS command before continuing
+                    if( !strcmp(buffer_pipe,"STATS")){
+                        kill(father_pid,SIGTSTP);
+                    }else if( !strcmp(buffer_pipe,"EXIT")){
+                        kill(father_pid,SIGINT);
                     }
 
                     //Split arguments
