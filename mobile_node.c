@@ -34,6 +34,10 @@ int main(int argc, char** argv){
         int num_instructions = atoi(argv[3]);
         int timeout = atoi(argv[4]);
 
+        if( (time_space == 0) || (num_instructions == 0)|| (timeout == 0)){
+            exit(1);
+        }
+
         for(int i = 0; i< atoi(argv[1]); i++){
 
             

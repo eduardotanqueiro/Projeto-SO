@@ -24,7 +24,7 @@
 #include <errno.h>
 
 
-#define DEBUG //remove this line to remove debug messages
+// #define DEBUG //remove this line to remove debug messages
 #define PIPE_NAME "TASK_PIPE"
 
 typedef struct

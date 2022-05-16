@@ -6,7 +6,7 @@
 int main(int argc, char** argv){
 
     //Block CTRL+C and CTRL+Z during initialization
-    //TODO BLOCK ALL SIGNALS, AFTER INIT RESUME ONLY CTRL+C AND CTRL+Z
+    //TODO BLOCK ALL SIGNALS WITH SIGMASK
     signal(SIGINT,SIG_IGN);
     signal(SIGTSTP,SIG_IGN);
 

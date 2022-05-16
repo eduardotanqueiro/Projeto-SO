@@ -5,10 +5,6 @@
 
 int TaskManager()
 {
-    #ifdef DEBUG
-    //printf("Task Manager!!\n");
-    #endif
-
     
     // Open unnamed pipes
     for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++)
@@ -63,11 +59,6 @@ int TaskManager()
 void *scheduler()
 {
 
-    #ifdef DEBUG
-    //printf("SCHEDULER\n");
-    // pause();
-    #endif
-
     char buffer_pipe[BUF_PIPE];
     int number_read, id_task, num_instructions, timeout_priority;
     int father_pid = getppid();
@@ -91,13 +82,15 @@ void *scheduler()
                 buffer_pipe[number_read] = '\0';
 
                 if(number_read > 0){
-
-                    // printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
+                    
+                    #ifdef DEBUG
+                    printf("[DEBUG] Reading %d message from the TASK_PIPE: %s\n",number_read,buffer_pipe);
+                    #endif
 
                     //Check if it's a QUIT or STATS command before continuing
-                    if( !strcmp(buffer_pipe,"STATS")){
+                    if( !strcmp(buffer_pipe,"STATS\n")){
                         kill(father_pid,SIGTSTP);
-                    }else if( !strcmp(buffer_pipe,"EXIT")){
+                    }else if( !strcmp(buffer_pipe,"EXIT\n")){
                         kill(father_pid,SIGINT);
                     }
 
@@ -187,10 +180,9 @@ void *dispatcher()
         pthread_mutex_unlock(&SMV->sem_tm_queue);
 
         #ifdef DEBUG
-        //printf("DEBUG DISPATCHER1: id: %d, num_instrucoes %d, prioridade %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->priority, next_task->timeout);
+        //printf("DEBUG DISPATCHER: id: %d, num_instrucoes %d, timeout: %d\n", next_task->id_node, next_task->num_instructions, next_task->timeout);
         #endif
 
- 
         //try to send the task to some edge server. if there are none CPUs available, waits for a signal saying that some CPU just ended a task
         pthread_mutex_lock(&SMV->shm_edge_servers);
 
@@ -261,7 +253,7 @@ int try_to_send(Node *next_task){
         
         return 0;
 
-    }else
+    }else //no CPUs available
         return 1;
 
 }
@@ -274,13 +266,10 @@ void check_cpus(Node *next_task, int **flag, int **pipe_to_send){
     int tempo_decorrido = time_since_arrive(next_task);
     int tempo_restante = next_task->timeout - tempo_decorrido;
 
-    if (tempo_restante <= 0)
-        return;
-
 
     for(int i = 0; i < SMV->EDGE_SERVER_NUMBER; i++){ //Check if there is any available CPU and, if so, check if it has capacity to run the task in time
 
-        if( edge_server_list[i].IN_MAINTENANCE == 0){ //if server is not int maintenance
+        if( edge_server_list[i].IN_MAINTENANCE == 0){ //if server is not in maintenance
 
             if( edge_server_list[i].AVAILABLE_CPUS[0] == 1 ){ //CPU1 available on Edge server i
 

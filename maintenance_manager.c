@@ -6,10 +6,6 @@
 int MaintenanceManager()
 {
 
-    #ifdef DEBUG
-    //printf("Maintenance Manager!!!\n");
-    #endif
-
     signal(SIGINT,sigint_maintenance);
 
     list_pids = malloc(sizeof(pid_t)*SMV->EDGE_SERVER_NUMBER);

@@ -58,9 +58,9 @@ int EdgeServer(int edge_server_number)
             
                 pthread_mutex_lock(&SMV->shm_edge_servers);
 
-                // #ifdef DEBUG
-                // printf("DEBUG EDGE SERVER %d: %s\n",glob_edge_server_number,buffer);
-                // #endif
+                #ifdef DEBUG
+                printf("DEBUG EDGE SERVER %d: %s\n",glob_edge_server_number,buffer);
+                #endif
 
                 //check performance mode
                 sem_wait(SMV->check_performance_mode);
@@ -70,7 +70,6 @@ int EdgeServer(int edge_server_number)
                     sem_post(SMV->check_performance_mode);
 
                     //send to vCPU1
-
                     //Set CPU as not available
                     edge_server_list[ glob_edge_server_number ].AVAILABLE_CPUS[0] = 0;
                     pthread_mutex_unlock(&SMV->shm_edge_servers);
@@ -214,13 +213,6 @@ void* MonitorEnd(){
 
     pthread_cond_wait(&SMV->end_system_sig,&SMV->shm_edge_servers);
 
-    //check performance mode and wait for threads if necessary
-    // //TODO CHECK MAINTENANCE
-    // while( edge_server_list[glob_edge_server_number].IN_MAINTENANCE == 1){
-    //     pthread_cond_wait(&SMV->edge_server_sig,&SMV->shm_edge_servers);
-    // }
-
-    // pthread_mutex_unlock(&SMV->shm_edge_servers);
 
     if( edge_server_list[glob_edge_server_number].IN_MAINTENANCE == 0){
 
